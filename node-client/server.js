@@ -222,7 +222,12 @@ function handleMessage(client, msg) {
         send(client.socket, { type: "ERROR", message: "Only host can start" });
         return;
       }
-      console.log("START_GAME pin", pin, "host", client.username);
+
+      // NEW: store questions into game state if provided
+      const questions = Array.isArray(msg.questions) ? msg.questions : [];
+      game.questions = questions;
+
+      console.log("START_GAME pin", pin, "host", client.username, "questions:", questions.length);
       game.state = "inProgress";
       broadcastToGame(pin, {
         type: "GAME_STARTED",
