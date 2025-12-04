@@ -49,9 +49,26 @@ const server = net.createServer((socket) => {
     client.buffer += data.toString();
     let index;
     while ((index = client.buffer.indexOf("\n")) !== -1) {
-      const raw = client.buffer.slice(0, index);
+      let raw = client.buffer.slice(0, index);
       client.buffer = client.buffer.slice(index + 1);
-      if (!raw.trim()) continue;
+      raw = raw.trim();
+      if (!raw) continue;
+
+      // ----- Ignore Render's HTTP health checks / probes -----
+      if (raw.startsWith("GET ") || raw.startsWith("HEAD ") || raw.startsWith("POST ")) {
+        console.log("Ignoring HTTP probe on TCP port:", raw);
+        // This is not a real game client; close the socket.
+        socket.destroy();
+        break;
+      }
+
+      // Ignore obviously non-JSON lines (e.g., headers like "Host:", "User-Agent:")
+      if (!raw.startsWith("{") && !raw.startsWith("[")) {
+        // Uncomment if you want to see them:
+        // console.log("Ignoring non-JSON line on TCP port:", raw);
+        continue;
+      }
+      // -------------------------------------------------------
 
       let msg;
       try {
@@ -242,6 +259,7 @@ function handleMessage(client, msg) {
   }
 }
 
-server.listen(TCP_PORT, () => {
-  console.log(`TCP game server listening on port ${TCP_PORT}`);
+// Bind specifically to 127.0.0.1 so the TCP server is internal-only
+server.listen(TCP_PORT, "127.0.0.1", () => {
+  console.log(`TCP game server listening on 127.0.0.1:${TCP_PORT}`);
 });
