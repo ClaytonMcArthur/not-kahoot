@@ -5,8 +5,7 @@ const net = require("net");
 const TCP_PORT = process.env.TCP_PORT || 4000;
 
 // All connected TCP clients
-// client = { socket, username, currentPin, buffer }
-const tcpClients = new Set();
+const tcpClients = new Set(); // { socket, username, currentPin }
 
 // Games keyed by PIN, e.g. "483920"
 // game = { pin, host, state, players: Set<string>, scores: Map<string, number>, questions: Array }
@@ -23,7 +22,7 @@ function serializeGame(game) {
     state: game.state,
     players: Array.from(game.players),
     scores: Object.fromEntries(game.scores.entries()),
-    questions: game.questions || []
+    questions: game.questions || [],
   };
 }
 
@@ -44,8 +43,7 @@ function broadcastToGame(pin, msg) {
 }
 
 const server = net.createServer((socket) => {
-  // Commented out to reduce noise from Render probes
-  // console.log("TCP client connected");
+  console.log("TCP client connected");
   const client = { socket, username: null, currentPin: null, buffer: "" };
   tcpClients.add(client);
 
@@ -64,8 +62,7 @@ const server = net.createServer((socket) => {
         raw.startsWith("HEAD ") ||
         raw.startsWith("POST ")
       ) {
-        // Commented out to reduce noise
-        // console.log("Ignoring HTTP probe on TCP port:", raw);
+        console.log("Ignoring HTTP probe on TCP port:", raw);
         // This is not a real game client; close the socket.
         socket.destroy();
         break;
@@ -92,12 +89,9 @@ const server = net.createServer((socket) => {
   });
 
   socket.on("close", () => {
-    // Commented out to reduce noise
-    // console.log("TCP client disconnected");
-
-    // IMPORTANT: in this architecture, the TCP socket is just a bridge
-    // for HTTP -> game server. We DO NOT treat TCP disconnect as a player
-    // leaving the game, so we don't touch game.players / scores here.
+    console.log("TCP client disconnected");
+    // NOTE: this TCP client in Render is an aggregate pipe for many usernames.
+    // If it closes, we *don't* try to remove any specific player here.
     tcpClients.delete(client);
   });
 
@@ -126,15 +120,14 @@ function handleMessage(client, msg) {
     }
 
     case "CREATE_GAME": {
-      if (!client.username) {
-        console.log("CREATE_GAME error: not registered");
-        send(client.socket, { type: "ERROR", message: "Not registered" });
-        return;
-      }
-
       // Optional extra info from the HTTP layer
       const { username, theme, isPublic, maxPlayers } = msg;
       const hostUser = username || client.username;
+      if (!hostUser) {
+        console.log("CREATE_GAME error: missing host username");
+        send(client.socket, { type: "ERROR", message: "No host username" });
+        return;
+      }
 
       const pin = generatePin();
       const game = {
@@ -143,7 +136,10 @@ function handleMessage(client, msg) {
         state: "lobby", // lobby | inProgress | ended
         players: new Set([hostUser]),
         scores: new Map([[hostUser, 0]]),
-        questions: [] // server owns the question list
+        questions: [], // server owns the question list
+        theme: theme || "",
+        isPublic: !!isPublic,
+        maxPlayers: maxPlayers || 20,
       };
       games.set(pin, game);
       client.currentPin = pin;
@@ -152,19 +148,21 @@ function handleMessage(client, msg) {
 
       const payload = {
         type: "GAME_CREATED",
-        game: serializeGame(game)
+        game: serializeGame(game),
       };
       send(client.socket, payload);
       break;
     }
 
     case "JOIN_GAME": {
-      if (!client.username) {
-        console.log("JOIN_GAME error: not registered");
-        send(client.socket, { type: "ERROR", message: "Not registered" });
+      const { pin, username } = msg;
+      const user = username || client.username;
+      if (!user) {
+        console.log("JOIN_GAME error: missing username");
+        send(client.socket, { type: "ERROR", message: "Username required" });
         return;
       }
-      const { pin } = msg;
+
       const game = games.get(pin);
       if (!game) {
         console.log("JOIN_GAME error: game not found for pin", pin);
@@ -172,41 +170,44 @@ function handleMessage(client, msg) {
         return;
       }
 
-      game.players.add(client.username);
-      if (!game.scores.has(client.username)) {
-        game.scores.set(client.username, 0);
+      game.players.add(user);
+      if (!game.scores.has(user)) {
+        game.scores.set(user, 0);
       }
+
       client.currentPin = pin;
 
-      console.log("JOIN_GAME success. pin", pin, "username", client.username);
+      console.log("JOIN_GAME success. pin", pin, "username", user);
 
       const gameData = serializeGame(game);
       send(client.socket, { type: "JOINED_GAME", game: gameData });
       broadcastToGame(pin, {
         type: "PLAYER_JOINED",
         pin,
-        game: gameData
+        game: gameData,
       });
       break;
     }
 
     case "EXIT_GAME": {
-      if (!client.currentPin || !client.username) return;
-      const pin = client.currentPin;
+      const { pin, username } = msg;
+      if (!pin || !username) {
+        console.log("EXIT_GAME missing pin or username", msg);
+        return;
+      }
       const game = games.get(pin);
       if (!game) return;
 
-      console.log("EXIT_GAME pin", pin, "username", client.username);
+      console.log("EXIT_GAME pin", pin, "username", username);
 
-      game.players.delete(client.username);
-      game.scores.delete(client.username);
-      client.currentPin = null;
+      game.players.delete(username);
+      game.scores.delete(username);
 
       const gameData = serializeGame(game);
       broadcastToGame(pin, {
         type: "PLAYER_LEFT",
         pin,
-        game: gameData
+        game: gameData,
       });
 
       if (game.players.size === 0) {
@@ -216,8 +217,7 @@ function handleMessage(client, msg) {
     }
 
     case "START_GAME": {
-      // Prefer explicit pin from message, fall back to currentPin
-      const pin = msg.pin || client.currentPin;
+      const { pin, username } = msg;
       if (!pin) return;
 
       const game = games.get(pin);
@@ -227,53 +227,61 @@ function handleMessage(client, msg) {
         return;
       }
 
-      // IMPORTANT: figure out who is trying to start the game.
-      // We prefer the username the HTTP layer sent.
-      const actor = msg.username || client.username || "Unknown";
-
-      if (game.host !== actor) {
+      const hostUser = username || client.username;
+      if (game.host !== hostUser) {
         console.log(
           "START_GAME error: non-host tried to start. host=",
           game.host,
           "user=",
-          actor
+          hostUser
         );
         send(client.socket, { type: "ERROR", message: "Only host can start" });
         return;
       }
 
-      // DO NOT overwrite questions from the message.
-      // We rely on the questions accumulated via SUBMIT_QUESTION.
-      const qCount = Array.isArray(game.questions) ? game.questions.length : 0;
-      console.log("START_GAME pin", pin, "host", actor, "questions:", qCount);
+      const qCount = Array.isArray(game.questions)
+        ? game.questions.length
+        : 0;
+      console.log(
+        "START_GAME pin",
+        pin,
+        "host",
+        hostUser,
+        "questions:",
+        qCount
+      );
 
       game.state = "inProgress";
 
       broadcastToGame(pin, {
         type: "GAME_STARTED",
         pin,
-        game: serializeGame(game)
+        game: serializeGame(game),
       });
       break;
     }
 
     case "ANSWER": {
-      if (!client.currentPin || !client.username) return;
-      const { pin, correct } = msg;
+      const { pin, correct, username } = msg;
+      if (!pin || !username) {
+        console.log("ANSWER missing pin or username", msg);
+        return;
+      }
       const game = games.get(pin);
       if (!game) return;
-      if (!game.scores.has(client.username)) {
-        game.scores.set(client.username, 0);
+
+      if (!game.scores.has(username)) {
+        game.scores.set(username, 0);
       }
       if (correct) {
-        game.scores.set(client.username, game.scores.get(client.username) + 1);
+        game.scores.set(username, game.scores.get(username) + 1);
       }
 
       console.log(
         "ANSWER pin",
         pin,
         "username",
-        client.username,
+        username,
         "correct",
         !!correct
       );
@@ -282,15 +290,15 @@ function handleMessage(client, msg) {
         type: "SCORE_UPDATE",
         pin,
         game: serializeGame(game),
-        answeredBy: client.username,
-        correct: !!correct
+        answeredBy: username,
+        correct: !!correct,
       });
       break;
     }
 
     case "CHAT": {
-      if (!client.currentPin) return;
       const { pin, message, username } = msg;
+      if (!pin || !message) return;
       const game = games.get(pin);
       if (!game) return;
 
@@ -302,14 +310,15 @@ function handleMessage(client, msg) {
         type: "CHAT",
         pin,
         from,
-        message
+        message,
       });
       break;
     }
 
     case "SUBMIT_QUESTION": {
-      if (!client.currentPin) return;
       const { pin, question, answerTrue, username } = msg;
+      if (!pin || !question) return;
+
       const game = games.get(pin);
       if (!game) {
         console.log("SUBMIT_QUESTION error: game not found for pin", pin);
@@ -326,7 +335,7 @@ function handleMessage(client, msg) {
       const qObj = {
         username: from,
         question,
-        answerTrue: !!answerTrue
+        answerTrue: !!answerTrue,
       };
 
       console.log(
@@ -347,7 +356,7 @@ function handleMessage(client, msg) {
         pin,
         username: from,
         question,
-        answerTrue: !!answerTrue
+        answerTrue: !!answerTrue,
       });
       break;
     }
