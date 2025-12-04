@@ -81,43 +81,58 @@ class GameClient extends EventEmitter {
   register() {
     this._send({
       type: "REGISTER",
-      username: this.username
+      username: this.username,
     });
   }
 
   listGames() {
     this._send({
-      type: "LIST_GAMES"
+      type: "LIST_GAMES",
     });
   }
 
   createGame(options = {}) {
     this._send({
       type: "CREATE_GAME",
-      ...options
+      ...options,
     });
   }
 
   joinGame(pin) {
     this._send({
       type: "JOIN_GAME",
-      pin
+      pin,
     });
   }
 
   exitGame(pin) {
     this._send({
       type: "EXIT_GAME",
-      pin
+      pin,
     });
   }
 
-  startGame(pin, questions) {
+  /**
+   * Start a game as the host.
+   * Called from client-api.js as: client.startGame(pin, username)
+   */
+  startGame(pin, username, questions) {
+    const user = username || this.username;
+    const qCount = Array.isArray(questions) ? questions.length : 0;
+
+    console.log("GameClient.startGame", {
+      pin,
+      username: user,
+      questionsCount: qCount,
+    });
+
+    // Server-side START_GAME now ignores questions from the message and uses
+    // the questions accumulated from SUBMIT_QUESTION, so we just send pin + username.
     this._send({
       type: "START_GAME",
       pin,
-      username,
-      questions: []
+      username: user,
+      // questions: questions || []  // optional, safe to omit since server ignores it
     });
   }
 
@@ -125,7 +140,7 @@ class GameClient extends EventEmitter {
     this._send({
       type: "ANSWER",
       pin,
-      correct
+      correct,
     });
   }
 
@@ -134,17 +149,31 @@ class GameClient extends EventEmitter {
       type: "CHAT",
       pin,
       message,
-      username
+      username,
     });
   }
 
-  submitQuestion(pin, question, answerTrue) {
+  /**
+   * Submit a question for the current game.
+   * Called from client-api.js as:
+   *   client.submitQuestion(pin, question, answerTrue, username)
+   */
+  submitQuestion(pin, question, answerTrue, username) {
+    const user = username || this.username;
+
+    console.log("GameClient.submitQuestion", {
+      pin,
+      username: user,
+      question,
+      answerTrue: !!answerTrue,
+    });
+
     this._send({
       type: "SUBMIT_QUESTION",
       pin,
       question,
-      answerTrue,
-      username
+      answerTrue: !!answerTrue,
+      username: user,
     });
   }
 
