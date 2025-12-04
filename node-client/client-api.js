@@ -284,18 +284,21 @@ app.post("/api/chat", (req, res) => {
 app.post("/api/submitQuestion", (req, res) => {
   console.log("HTTP /api/submitQuestion", req.body);
   if (!client) {
-    console.log("submitQuestion error: no GameClient");
     return res.status(400).json({ ok: false, error: "Not connected" });
   }
 
-  const { pin, username, question, answerTrue } = req.body;
+  const { pin, question, username } = req.body;
+  const answerTrue = !!req.body.answerTrue;
+
   if (!pin || !question) {
     return res
       .status(400)
       .json({ ok: false, error: "pin and question are required" });
   }
 
-  client.submitQuestion(pin, question, !!answerTrue);
+  // Pass username all the way through
+  client.submitQuestion(pin, question, answerTrue, username);
+
   return res.json({ ok: true });
 });
 
