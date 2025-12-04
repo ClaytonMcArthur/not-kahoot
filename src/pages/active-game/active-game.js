@@ -6,52 +6,27 @@ import {
   sendChat,
   subscribeToGameEvents,
   exitGame,
-  nextQuestion, // ⬅️ make sure this exists in your frontend clientApi
 } from "../../api/clientApi";
 import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 
 export const ActiveGame = () => {
   const location = useLocation();
-  const { game: initialGame, username } = location.state || {};
+  const { game, username } = location.state || {};
 
-  const [game, setGame] = useState(initialGame || null);
   const [messages, setMessages] = useState([]);
-  const [scores, setScores] = useState(initialGame?.scores || {});
-  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
-
+  const [scores, setScores] = useState({});
   const navigate = useNavigate();
 
-  // Ensure we have a valid game + username
-  if (!initialGame) {
-    return <div>Please join a game first.</div>;
-  }
-  if (!username) {
-    return <div>Username not found. Please re-join the game.</div>;
-  }
-
-  const isHost = username === initialGame.host;
-
-  // Initialize local game state once from location.state
-  useEffect(() => {
-    if (!initialGame) return;
-
-    setGame(initialGame);
-    setScores(initialGame.scores || {});
-    setCurrentQuestionIndex(0);
-  }, [initialGame]);
-
-  // Subscribe to SSE events for this game's updates
+  // Subscribe to SSE events for chat and scores
   useEffect(() => {
     if (!game) return;
 
-    const pin = game.pin;
-
     const unsubscribe = subscribeToGameEvents((msg) => {
-      if (!msg.pin || msg.pin !== pin) return; // ignore other games
+      if (!msg.pin || msg.pin !== game.pin) return; // filter by game
 
       switch (msg.type) {
-        case "CHAT": {
+        case "CHAT":
           setMessages((prev) => [
             ...prev,
             {
@@ -61,68 +36,43 @@ export const ActiveGame = () => {
             },
           ]);
           break;
-        }
 
-        case "SCORE_UPDATE": {
+        case "SCORE_UPDATE":
           if (msg.game && msg.game.scores) {
             setScores(msg.game.scores);
           }
           break;
-        }
-
-        case "GAME_STARTED": {
-          // If for some reason we navigate here before game starts,
-          // or the server restarts the game, keep local game in sync.
-          if (msg.game) {
-            setGame(msg.game);
-            setScores(msg.game.scores || {});
-            setCurrentQuestionIndex(0);
-          }
-          break;
-        }
-
-        case "NEXT_QUESTION": {
-          // Advance the question index for *all* clients in this game
-          setCurrentQuestionIndex((prev) => prev + 1);
-          break;
-        }
 
         default:
           break;
       }
     });
 
-    return () => {
-      unsubscribe();
-    };
-  }, [game?.pin]);
+    return () => unsubscribe();
+  }, [game?.pin, username]);
 
   const handleSendMessage = (messageText) => {
-    if (!game) return;
+    if (!game || !username) return;
     sendChat(game.pin, messageText, username);
   };
 
+  if (!game) {
+    return <div>Please join a game first.</div>;
+  }
+
+  if (!username) {
+    return <div>Username not found. Please re-join the game.</div>;
+  }
+
+  const isHost = username === game.host;
+
   const handleExitGame = async () => {
     try {
-      if (game) {
-        await exitGame(game.pin, username);
-      }
+      await exitGame(game.pin, username);
     } catch (err) {
       console.error("Failed to exit game:", err);
     }
     navigate("/");
-  };
-
-  const handleNextQuestion = async () => {
-    if (!game) return;
-    try {
-      // Host asks the server to advance questions for this game
-      await nextQuestion(game.pin);
-      // Don't manually bump currentQuestionIndex here;
-      // all clients (including host) update when they receive NEXT_QUESTION via SSE.
-    } catch (err) {
-      console.error("Failed to go to next question:", err);
-    }
   };
 
   return (
@@ -130,17 +80,13 @@ export const ActiveGame = () => {
       {!isHost && (
         <Button buttonEvent={handleExitGame} buttonText="Exit" />
       )}
-
       <AllQuestions
         gameQuestions={game.questions || []}
         gamePin={game.pin}
         username={username}
         isHost={isHost}
         scores={scores}
-        currentQuestionIndex={currentQuestionIndex}
-        onNextQuestion={isHost ? handleNextQuestion : undefined}
       />
-
       <Chat
         messages={messages}
         user={username}
