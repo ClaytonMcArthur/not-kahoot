@@ -128,11 +128,12 @@ class GameClient extends EventEmitter {
     });
   }
 
-  sendChat(pin, message) {
+  sendChat(pin, message, username) {
     this._send({
       type: "CHAT",
       pin,
-      message
+      message,
+      username
     });
   }
 
