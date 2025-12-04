@@ -137,6 +137,15 @@ class GameClient extends EventEmitter {
     });
   }
 
+  submitQuestion(pin, question, answerTrue) {
+    this._send({
+      type: "SUBMIT_QUESTION",
+      pin,
+      question,
+      answerTrue
+    });
+  }
+
   close() {
     if (this.socket) {
       this.socket.end();
