@@ -280,6 +280,35 @@ function handleMessage(client, msg) {
       break;
     }
 
+    case "SUBMIT_QUESTION": {
+      if (!client.currentPin) return;
+      const { pin, question, answerTrue, username } = msg;
+      const game = games.get(pin);
+      if (!game) return;
+
+      const from = username || client.username || "Unknown";
+
+      console.log(
+        "SUBMIT_QUESTION pin",
+        pin,
+        "from",
+        from,
+        "question:",
+        question
+      );
+
+      // Just broadcast it; the host will aggregate them in the frontend
+      broadcastToGame(pin, {
+        type: "QUESTION_SUBMITTED",
+        pin,
+        username: from,
+        question,
+        answerTrue: !!answerTrue
+      });
+      break;
+    }
+
+
     default:
       console.log("Unknown message type:", type);
       send(client.socket, { type: "ERROR", message: `Unknown type: ${type}` });
