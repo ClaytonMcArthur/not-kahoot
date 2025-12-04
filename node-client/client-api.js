@@ -95,14 +95,39 @@ app.post("/api/connect", async (req, res) => {
 });
 
 // POST /api/listGames {}
-app.post("/api/listGames", (req, res) => {
+// Returns { success: true, games: [...] } based on GAMES_LIST from TCP server
+app.post("/api/listGames", async (req, res) => {
   console.log("HTTP /api/listGames");
   if (!client) {
     console.log("listGames error: no GameClient");
     return res.status(400).json({ ok: false, error: "Not connected" });
   }
-  client.listGames();
-  return res.json({ ok: true });
+
+  try {
+    const games = await new Promise((resolve, reject) => {
+      let timeout;
+
+      const handler = (msg) => {
+        console.log("Received GAMES_LIST from TCP:", msg);
+        clearTimeout(timeout);
+        client.removeListener("GAMES_LIST", handler);
+        resolve(msg.games || []);
+      };
+
+      timeout = setTimeout(() => {
+        client.removeListener("GAMES_LIST", handler);
+        reject(new Error("Timed out waiting for GAMES_LIST"));
+      }, 5000);
+
+      client.once("GAMES_LIST", handler);
+      client.listGames();
+    });
+
+    return res.json({ success: true, games });
+  } catch (err) {
+    console.error("listGames error:", err);
+    return res.status(500).json({ ok: false, error: err.message });
+  }
 });
 
 // POST /api/createGame { ...options }
