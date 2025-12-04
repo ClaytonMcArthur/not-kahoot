@@ -58,13 +58,18 @@ app.post("/api/connect", async (req, res) => {
   }
 
   try {
-    // Close previous client if any
-    if (client) {
-      console.log("Closing existing GameClient before reconnect");
-      client.close();
-      client = null;
+    // If we already have a live GameClient, **reuse it**.
+    // Do NOT close/reconnect, or you'll drop everyone on the TCP server.
+    if (client && client.connected) {
+      console.log(
+        `Reusing existing GameClient TCP connection (already registered as ${client.username})`
+      );
+      // We don't re-register with a new username; the TCP server keeps the first one.
+      // All user identity in messages should come from the payload (msg.username).
+      return res.json({ ok: true, reused: true });
     }
 
+    // First time: create the TCP client
     currentUsername = username;
     client = new GameClient(TCP_HOST, TCP_PORT, username);
 
@@ -86,8 +91,8 @@ app.post("/api/connect", async (req, res) => {
     await client.connect();
     client.register();
 
-    console.log(`Registered username: ${username}`);
-    return res.json({ ok: true });
+    console.log(`Registered username on TCP server: ${username}`);
+    return res.json({ ok: true, reused: false });
   } catch (err) {
     console.error("Failed to connect to TCP server in /api/connect:", err);
     return res.status(500).json({ ok: false, error: err.message });
