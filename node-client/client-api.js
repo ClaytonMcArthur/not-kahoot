@@ -191,7 +191,7 @@ app.post("/api/startGame", (req, res) => {
   }
 
   console.log("startGame called with pin:", chosenPin, "questions:", questions?.length || 0);
-  client.startGame(chosenPin);
+  client.startGame(chosenPin, questions || []);
   return res.json({ ok: true });
 });
 
