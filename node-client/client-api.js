@@ -281,6 +281,24 @@ app.post("/api/chat", (req, res) => {
   return res.json({ ok: true });
 });
 
+app.post("/api/submitQuestion", (req, res) => {
+  console.log("HTTP /api/submitQuestion", req.body);
+  if (!client) {
+    console.log("submitQuestion error: no GameClient");
+    return res.status(400).json({ ok: false, error: "Not connected" });
+  }
+
+  const { pin, username, question, answerTrue } = req.body;
+  if (!pin || !question) {
+    return res
+      .status(400)
+      .json({ ok: false, error: "pin and question are required" });
+  }
+
+  client.submitQuestion(pin, question, !!answerTrue);
+  return res.json({ ok: true });
+});
+
 // Optional: disconnect route if you ever want it
 app.post("/api/disconnect", (req, res) => {
   console.log("HTTP /api/disconnect");
