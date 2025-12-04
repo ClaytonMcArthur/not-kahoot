@@ -33,8 +33,8 @@ export function removeGame(pin) {
     return post("/removeGame", { pin });
 }
 
-export function startGame(pin) {
-  return post("/startGame", { pin });
+export function startGame(pin, username) {
+  return post("/startGame", { pin, username });
 }
 
 export function joinGame(gameId) {
