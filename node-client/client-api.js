@@ -277,7 +277,7 @@ app.post("/api/chat", (req, res) => {
   }
 
   console.log("chat:", { pin, message, username });
-  client.sendChat(pin, message);
+  client.sendChat(pin, message, username || "Unknown");
   return res.json({ ok: true });
 });
 
