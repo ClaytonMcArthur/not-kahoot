@@ -71,6 +71,10 @@ export async function submitQuestion(pin, question, answerTrue, username) {
   });
 }
 
+export async function removeGame(pin) {
+    return postJSON("/api/removeGame", { pin });
+}
+
 // ===== Chat & events =====
 
 export async function sendChat(pin, message, username) {
