@@ -53,6 +53,20 @@ export function nextQuestion(gameId) {
     return post("/nextQuestion", { gameId });
 }
 
+export function submitQuestion(pin, question, answerTrue, username) {
+    const finalUsername =
+        username ||
+        localStorage.getItem("username") ||
+        "Unknown";
+
+    return post("/submitQuestion", {
+        pin,
+        question,
+        answerTrue,
+        username: finalUsername
+    });
+}
+
 export async function sendChat(pin, message, username) {
     const finalUsername =
         username ||
