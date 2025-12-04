@@ -23,38 +23,66 @@ export const AllQuestions = (props) => {
     const [playerAnswers, setPlayerAnswers] = useState({});
     const [scores, setScores] = useState({});
 
-    // Subscribe to live game events for scores or host actions
-    useEffect(() => {
-        const unsubscribe = subscribeToGameEvents((msg) => {
-            if (msg.pin !== props.gamePin) return;
-
-            if (msg.type === 'scoreUpdate') {
-                setScores(msg.scores);
-            }
-
-            if (msg.type === 'nextQuestion') {
-                nextQuestion();
-            }
-
-            if (msg.type === 'gameEnded') {
-                setGameEnd(true);
-                setIsQuestionActive(false);
-            }
-        });
-
-        return () => unsubscribe();
-
-    }, [props.gamePin]);
-
-    const currentQuestion = props.gameQuestions[questionIndex];
-    const isLastQuestion = questionIndex === props.gameQuestions.length - 1;
-
     // Prevent crashing while questions are not loaded
     if (!props.gameQuestions || props.gameQuestions.length === 0) {
         return <div className="all-questions-section">Loading questions...</div>;
     }
 
+    const currentQuestion = props.gameQuestions[questionIndex];
+    const isLastQuestion = questionIndex === props.gameQuestions.length - 1;
+
+    // Subscribe to live game events for scores or host actions
+    useEffect(() => {
+        const unsubscribe = subscribeToGameEvents((msg) => {
+            if (!msg.pin || msg.pin !== props.gamePin) return;
+
+            switch (msg.type) {
+                case 'SCORE_UPDATE': {
+                    // Server sends { type: 'SCORE_UPDATE', game: { scores: {...} }, ... }
+                    if (msg.game && msg.game.scores) {
+                        setScores(msg.game.scores);
+                    }
+                    break;
+                }
+
+                case 'NEXT_QUESTION': {
+                    // Advance to the next question for EVERYONE in this game
+                    setIsQuestionActive(true);
+                    setIsAnswered(false);
+                    setGameEnd(false);
+
+                    setQuestionIndex((prevIndex) => {
+                        const nextIndex = prevIndex + 1;
+                        // If we run out of questions, mark game end and don't go out of bounds
+                        if (nextIndex >= props.gameQuestions.length) {
+                            setGameEnd(true);
+                            setIsQuestionActive(false);
+                            return prevIndex; // stay on last question index
+                        }
+                        return nextIndex;
+                    });
+                    break;
+                }
+
+                case 'GAME_ENDED': {
+                    // In case you ever add this event type on the server
+                    setGameEnd(true);
+                    setIsQuestionActive(false);
+                    break;
+                }
+
+                default:
+                    break;
+            }
+        });
+
+        return () => unsubscribe();
+
+        // Include length so if the number of questions changes, bounds checks update
+    }, [props.gamePin, props.gameQuestions.length]);
+
     const handleNextClick = async () => {
+        // Only the host should actually call the backend.
         if (props.isHost) {
             try {
                 await nextQuestion(props.gamePin);
@@ -62,6 +90,8 @@ export const AllQuestions = (props) => {
                 console.error("Error advancing to next question:", error);
             }
         }
+        // Everyone (host + players) will actually move to the next question
+        // when the SSE event { type: 'NEXT_QUESTION', pin: gameId } arrives.
     };
 
     const questionAnswered = (answer) => {
