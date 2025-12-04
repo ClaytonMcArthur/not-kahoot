@@ -5,7 +5,8 @@ const net = require("net");
 const TCP_PORT = process.env.TCP_PORT || 4000;
 
 // All connected TCP clients
-const tcpClients = new Set(); // { socket, username, currentPin }
+// client = { socket, username, currentPin, buffer }
+const tcpClients = new Set();
 
 // Games keyed by PIN, e.g. "483920"
 // game = { pin, host, state, players: Set<string>, scores: Map<string, number>, questions: Array }
@@ -43,7 +44,8 @@ function broadcastToGame(pin, msg) {
 }
 
 const server = net.createServer((socket) => {
-  console.log("TCP client connected");
+  // Commented out to reduce noise from Render probes
+  // console.log("TCP client connected");
   const client = { socket, username: null, currentPin: null, buffer: "" };
   tcpClients.add(client);
 
@@ -57,8 +59,13 @@ const server = net.createServer((socket) => {
       if (!raw) continue;
 
       // ----- Ignore Render's HTTP health checks / probes -----
-      if (raw.startsWith("GET ") || raw.startsWith("HEAD ") || raw.startsWith("POST ")) {
-        console.log("Ignoring HTTP probe on TCP port:", raw);
+      if (
+        raw.startsWith("GET ") ||
+        raw.startsWith("HEAD ") ||
+        raw.startsWith("POST ")
+      ) {
+        // Commented out to reduce noise
+        // console.log("Ignoring HTTP probe on TCP port:", raw);
         // This is not a real game client; close the socket.
         socket.destroy();
         break;
@@ -85,23 +92,12 @@ const server = net.createServer((socket) => {
   });
 
   socket.on("close", () => {
-    console.log("TCP client disconnected");
-    // Remove from game if necessary
-    if (client.currentPin && client.username) {
-      const game = games.get(client.currentPin);
-      if (game) {
-        game.players.delete(client.username);
-        game.scores.delete(client.username);
-        broadcastToGame(game.pin, {
-          type: "PLAYER_LEFT",
-          pin: game.pin,
-          game: serializeGame(game)
-        });
-        if (game.players.size === 0) {
-          games.delete(game.pin);
-        }
-      }
-    }
+    // Commented out to reduce noise
+    // console.log("TCP client disconnected");
+
+    // IMPORTANT: in this architecture, the TCP socket is just a bridge
+    // for HTTP -> game server. We DO NOT treat TCP disconnect as a player
+    // leaving the game, so we don't touch game.players / scores here.
     tcpClients.delete(client);
   });
 
@@ -147,7 +143,7 @@ function handleMessage(client, msg) {
         state: "lobby", // lobby | inProgress | ended
         players: new Set([hostUser]),
         scores: new Map([[hostUser, 0]]),
-        questions: [] // IMPORTANT: server owns the question list
+        questions: [] // server owns the question list
       };
       games.set(pin, game);
       client.currentPin = pin;
@@ -231,21 +227,25 @@ function handleMessage(client, msg) {
         return;
       }
 
-      if (game.host !== client.username) {
+      // IMPORTANT: figure out who is trying to start the game.
+      // We prefer the username the HTTP layer sent.
+      const actor = msg.username || client.username || "Unknown";
+
+      if (game.host !== actor) {
         console.log(
           "START_GAME error: non-host tried to start. host=",
           game.host,
           "user=",
-          client.username
+          actor
         );
         send(client.socket, { type: "ERROR", message: "Only host can start" });
         return;
       }
 
-      // IMPORTANT: do NOT overwrite questions from the message.
+      // DO NOT overwrite questions from the message.
       // We rely on the questions accumulated via SUBMIT_QUESTION.
       const qCount = Array.isArray(game.questions) ? game.questions.length : 0;
-      console.log("START_GAME pin", pin, "host", client.username, "questions:", qCount);
+      console.log("START_GAME pin", pin, "host", actor, "questions:", qCount);
 
       game.state = "inProgress";
 
@@ -269,7 +269,14 @@ function handleMessage(client, msg) {
         game.scores.set(client.username, game.scores.get(client.username) + 1);
       }
 
-      console.log("ANSWER pin", pin, "username", client.username, "correct", !!correct);
+      console.log(
+        "ANSWER pin",
+        pin,
+        "username",
+        client.username,
+        "correct",
+        !!correct
+      );
 
       broadcastToGame(pin, {
         type: "SCORE_UPDATE",
