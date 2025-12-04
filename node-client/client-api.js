@@ -106,7 +106,8 @@ app.post("/api/listGames", (req, res) => {
 });
 
 // POST /api/createGame { ...options }
-// Returns: { success: true, game: { ... } } after receiving GAME_CREATED from TCP server
+// TCP server will generate the pin and respond with GAME_CREATED via TCP.
+// We wait for that and then return { success, game } to the frontend.
 app.post("/api/createGame", async (req, res) => {
   console.log("HTTP /api/createGame", req.body);
   if (!client) {
@@ -118,41 +119,22 @@ app.post("/api/createGame", async (req, res) => {
 
   try {
     const game = await new Promise((resolve, reject) => {
-      // One-time listener for GAME_CREATED from TCP server
+      let timeout;
+
       const handler = (msg) => {
         console.log("Received GAME_CREATED from TCP:", msg);
+        clearTimeout(timeout);
         client.removeListener("GAME_CREATED", handler);
         resolve(msg.game);
       };
 
-      client.once("GAME_CREATED", handler);
-
-      // Safety timeout so we don't hang forever
-      const timeout = setTimeout(() => {
+      timeout = setTimeout(() => {
         client.removeListener("GAME_CREATED", handler);
         reject(new Error("Timed out waiting for GAME_CREATED"));
       }, 5000);
 
-      // Wrap resolve/reject to clear timeout
-      const resolveWrapped = (value) => {
-        clearTimeout(timeout);
-        resolve(value);
-      };
-      const rejectWrapped = (err) => {
-        clearTimeout(timeout);
-        reject(err);
-      };
-
-      // Actually send CREATE_GAME to TCP server
-      try {
-        client.createGame(options);
-      } catch (e) {
-        rejectWrapped(e);
-      }
-
-      // Override resolve/reject so timeout is cleared
-      resolve = resolveWrapped;
-      reject = rejectWrapped;
+      client.once("GAME_CREATED", handler);
+      client.createGame(options);
     });
 
     return res.json({ success: true, game });
