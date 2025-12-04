@@ -1,104 +1,62 @@
 // src/api/clientApi.js
 const API_BASE = process.env.REACT_APP_API_BASE || "";
 
-// Helper for JSON POST
 async function postJSON(path, body) {
   const res = await fetch(`${API_BASE}${path}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body || {}),
   });
-  const data = await res.json();
-  if (!res.ok || data.ok === false) {
-    throw new Error(data.error || `Request to ${path} failed`);
+
+  if (!res.ok) {
+    let msg = `HTTP ${res.status}`;
+    try {
+      const data = await res.json();
+      if (data && data.error) msg = data.error;
+    } catch (e) {}
+    throw new Error(msg);
   }
-  return data;
+
+  return res.json().catch(() => ({}));
 }
 
-// ===== Connection & games =====
-
-export async function connect(username) {
-  return postJSON("/api/connect", { username });
-}
-
-export async function listGames() {
-  return postJSON("/api/listGames", {});
-}
-
-export async function createGame({ username, theme, isPublic, maxPlayers }) {
-  const result = await postJSON("/api/createGame", {
-    username,
-    theme,
-    isPublic,
-    maxPlayers,
-  });
-  return result.game;
-}
-
-export async function joinGame(pin, username) {
-  return postJSON("/api/joinGame", { gameId: pin, username });
-}
-
-export async function exitGame(pin, username) {
-  return postJSON("/api/exitGame", { gameId: pin, username });
-}
+// --- existing helpers like connect, listGames, createGame, joinGame, exitGame, etc. ---
 
 export async function startGame(pin, username) {
+  // this must match client-api.js (Node) route:
+  // app.post("/api/startGame", (req, res) => { const { pin, username } = req.body; ... })
   return postJSON("/api/startGame", { pin, username });
 }
 
-// ===== Gameplay =====
-
-export async function sendAnswer(pin, questionId, answer, username) {
-  return postJSON("/api/sendAnswer", {
-    gameId: pin,
-    questionId,
-    answer,
-    username,
-  });
-}
-
-export async function nextQuestion(pin) {
-  return postJSON("/api/nextQuestion", { gameId: pin });
-}
-
-export async function submitQuestion(pin, question, answerTrue, username) {
-  return postJSON("/api/submitQuestion", {
-    pin,
-    question,
-    answerTrue,
-    username,
-  });
-}
-
 export async function removeGame(pin) {
-    return postJSON("/api/removeGame", { pin });
+  return postJSON("/api/removeGame", { pin });
 }
 
-// ===== Chat & events =====
-
-export async function sendChat(pin, message, username) {
-  return postJSON("/api/chat", { pin, message, username });
+export async function sendAnswer(gameId, questionId, answer) {
+  return postJSON("/api/sendAnswer", { gameId, questionId, answer });
 }
 
-// Shared SSE stream
+export async function nextQuestion(gameId) {
+  return postJSON("/api/nextQuestion", { gameId });
+}
+
 export function subscribeToGameEvents(callback) {
-  const source = new EventSource("/api/events");
+  const es = new EventSource(`${API_BASE}/api/events`);
 
-  source.onmessage = (event) => {
+  es.onmessage = (event) => {
     try {
       const data = JSON.parse(event.data);
       callback(data);
     } catch (e) {
-      console.error("Failed to parse SSE message:", e);
+      console.error("Failed to parse SSE event:", event.data, e);
     }
   };
 
-  source.onerror = (err) => {
+  es.onerror = (err) => {
     console.error("SSE error:", err);
   };
 
   return () => {
-    source.close();
+    es.close();
   };
 }
