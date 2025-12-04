@@ -178,20 +178,20 @@ app.post("/api/removeGame", (req, res) => {
 
 // POST /api/startGame { pin or gameId, questions? }
 app.post("/api/startGame", (req, res) => {
-  console.log("HTTP /api/startGame", req.body);
+  const { pin, username } = req.body;
+  console.log("startGame called with pin:", pin, "username:", username);
+
   if (!client) {
-    console.log("startGame error: no GameClient");
     return res.status(400).json({ ok: false, error: "Not connected" });
   }
 
-  const { gameId, pin, questions } = req.body;
-  const chosenPin = pin || gameId;
-  if (!chosenPin) {
-    return res.status(400).json({ ok: false, error: "pin or gameId is required" });
+  if (!pin) {
+    return res.status(400).json({ ok: false, error: "pin is required" });
   }
 
-  console.log("startGame called with pin:", chosenPin, "questions:", questions?.length || 0);
-  client.startGame(chosenPin, questions || []);
+  // We no longer send questions from HTTP; they live in game.questions on the server.
+  client.startGame(pin, username);
+
   return res.json({ ok: true });
 });
 
