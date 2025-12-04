@@ -32,6 +32,7 @@ function broadcastSSE(msg) {
 
 // GET /api/events - SSE stream for game events
 app.get("/api/events", (req, res) => {
+  console.log("SSE /api/events connection opened");
   res.setHeader("Content-Type", "text/event-stream");
   res.setHeader("Cache-Control", "no-cache");
   res.setHeader("Connection", "keep-alive");
@@ -40,6 +41,7 @@ app.get("/api/events", (req, res) => {
   sseClients.add(res);
 
   req.on("close", () => {
+    console.log("SSE /api/events connection closed");
     sseClients.delete(res);
   });
 });
@@ -49,6 +51,8 @@ app.get("/api/events", (req, res) => {
 // POST /api/connect { username }
 app.post("/api/connect", async (req, res) => {
   const { username } = req.body;
+  console.log("HTTP /api/connect", req.body);
+
   if (!username || !username.trim()) {
     return res.status(400).json({ ok: false, error: "Username is required" });
   }
@@ -56,6 +60,7 @@ app.post("/api/connect", async (req, res) => {
   try {
     // Close previous client if any
     if (client) {
+      console.log("Closing existing GameClient before reconnect");
       client.close();
       client = null;
     }
@@ -63,8 +68,13 @@ app.post("/api/connect", async (req, res) => {
     currentUsername = username;
     client = new GameClient(TCP_HOST, TCP_PORT, username);
 
+    // Avoid attaching multiple listeners if /connect is called again
+    client.removeAllListeners("message");
+    client.removeAllListeners("error");
+
     // Forward all messages from TCP server to SSE clients
     client.on("message", (msg) => {
+      console.log("GameClient message from TCP:", msg);
       broadcastSSE(msg);
     });
 
@@ -79,15 +89,16 @@ app.post("/api/connect", async (req, res) => {
     console.log(`Registered username: ${username}`);
     return res.json({ ok: true });
   } catch (err) {
-    console.error("Failed to connect to TCP server:", err);
+    console.error("Failed to connect to TCP server in /api/connect:", err);
     return res.status(500).json({ ok: false, error: err.message });
   }
 });
 
 // POST /api/listGames {}
-// Frontend expects this to trigger listing; actual list arrives via SSE as GAMES_LIST
 app.post("/api/listGames", (req, res) => {
+  console.log("HTTP /api/listGames");
   if (!client) {
+    console.log("listGames error: no GameClient");
     return res.status(400).json({ ok: false, error: "Not connected" });
   }
   client.listGames();
@@ -95,9 +106,10 @@ app.post("/api/listGames", (req, res) => {
 });
 
 // POST /api/createGame { ...options }
-// TCP server will generate the pin and respond with GAME_CREATED via SSE
 app.post("/api/createGame", (req, res) => {
+  console.log("HTTP /api/createGame", req.body);
   if (!client) {
+    console.log("createGame error: no GameClient");
     return res.status(400).json({ ok: false, error: "Not connected" });
   }
   const options = req.body || {};
@@ -105,17 +117,18 @@ app.post("/api/createGame", (req, res) => {
   return res.json({ ok: true });
 });
 
-// POST /api/removeGame { pin }
-// Your TCP server doesn't have a REMOVE_GAME type yet, so stub it out for now.
+// POST /api/removeGame { pin } (stub)
 app.post("/api/removeGame", (req, res) => {
+  console.log("HTTP /api/removeGame", req.body);
   // You can later add a message type to server.js if you want to implement this.
-  console.log("removeGame stub hit with body:", req.body);
   return res.json({ ok: true });
 });
 
-// POST /api/startGame { gameId or pin, questions? }
+// POST /api/startGame { pin or gameId, questions? }
 app.post("/api/startGame", (req, res) => {
+  console.log("HTTP /api/startGame", req.body);
   if (!client) {
+    console.log("startGame error: no GameClient");
     return res.status(400).json({ ok: false, error: "Not connected" });
   }
 
@@ -125,16 +138,16 @@ app.post("/api/startGame", (req, res) => {
     return res.status(400).json({ ok: false, error: "pin or gameId is required" });
   }
 
-  // questions currently unused by TCP server; your frontend can handle question content
   console.log("startGame called with pin:", chosenPin, "questions:", questions?.length || 0);
-
   client.startGame(chosenPin);
   return res.json({ ok: true });
 });
 
 // POST /api/joinGame { gameId }
 app.post("/api/joinGame", (req, res) => {
+  console.log("HTTP /api/joinGame", req.body);
   if (!client) {
+    console.log("joinGame error: no GameClient");
     return res.status(400).json({ ok: false, error: "Not connected" });
   }
 
@@ -149,7 +162,9 @@ app.post("/api/joinGame", (req, res) => {
 
 // POST /api/exitGame { gameId }
 app.post("/api/exitGame", (req, res) => {
+  console.log("HTTP /api/exitGame", req.body);
   if (!client) {
+    console.log("exitGame error: no GameClient");
     return res.status(400).json({ ok: false, error: "Not connected" });
   }
 
@@ -163,9 +178,10 @@ app.post("/api/exitGame", (req, res) => {
 });
 
 // POST /api/sendAnswer { gameId, questionId, answer }
-// Your TCP server only cares about pin + correct(boolean). We'll treat answer as boolean for now.
 app.post("/api/sendAnswer", (req, res) => {
+  console.log("HTTP /api/sendAnswer", req.body);
   if (!client) {
+    console.log("sendAnswer error: no GameClient");
     return res.status(400).json({ ok: false, error: "Not connected" });
   }
 
@@ -175,15 +191,14 @@ app.post("/api/sendAnswer", (req, res) => {
   }
 
   const correct = !!answer; // you can adjust this mapping later if needed
-  console.log("sendAnswer:", { gameId, questionId, answer, correct });
-
+  console.log("sendAnswer mapping -> pin:", gameId, "correct:", correct, "questionId:", questionId);
   client.sendAnswer(gameId, correct);
   return res.json({ ok: true });
 });
 
 // POST /api/nextQuestion { gameId }
-// Your TCP server doesn't know about NEXT_QUESTION, so handle it at the Node layer by SSE broadcast.
 app.post("/api/nextQuestion", (req, res) => {
+  console.log("HTTP /api/nextQuestion", req.body);
   const { gameId } = req.body;
   if (!gameId) {
     return res.status(400).json({ ok: false, error: "gameId is required" });
@@ -195,9 +210,10 @@ app.post("/api/nextQuestion", (req, res) => {
 });
 
 // POST /api/chat { pin, message, username }
-// Node will tell TCP server to broadcast CHAT for that pin.
 app.post("/api/chat", (req, res) => {
+  console.log("HTTP /api/chat", req.body);
   if (!client) {
+    console.log("chat error: no GameClient");
     return res.status(400).json({ ok: false, error: "Not connected" });
   }
 
@@ -215,6 +231,7 @@ app.post("/api/chat", (req, res) => {
 
 // Optional: disconnect route if you ever want it
 app.post("/api/disconnect", (req, res) => {
+  console.log("HTTP /api/disconnect");
   if (client) {
     client.close();
     client = null;
@@ -236,5 +253,5 @@ app.get("*", (req, res) => {
 const HTTP_PORT = process.env.PORT || 3001;
 app.listen(HTTP_PORT, () => {
   console.log(`HTTP API + static server listening on port ${HTTP_PORT}`);
-  console.log(`Connecting TCP GameClient to ${TCP_HOST}:${TCP_PORT} when /api/connect is called`);
+  console.log(`TCP server expected at ${TCP_HOST}:${TCP_PORT} (started via require("./server"))`);
 });
