@@ -1,0 +1,59 @@
+@import '../../_variables.scss';
+
+.home {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-around;
+    align-items: center;
+
+    .title-section {
+        display: flex;
+        flex-direction: row;
+        justify-content: space-between;
+        gap: 2rem;
+        padding-bottom: 2rem;
+        align-items: center;
+
+        .make-purple {
+            color: $MainPurple;
+            font-size: 2.5rem;
+        }
+
+        .logo {
+            height: 75px;
+            width: auto;
+        }
+    }
+
+    .registration {
+        .button {
+            position: absolute;
+            top: 2rem;
+            align-self: flex-end;
+            right: 3rem;
+        }
+    }
+
+    .home-buttons {
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        gap: 2rem;
+    }
+
+    .scoreboards {
+        display: flex;
+        flex-direction: row;
+        justify-content: space-between;
+        gap: 5rem;
+        padding-bottom: 3rem;
+
+        @media (max-width: 600px) {
+            flex-direction: column;
+        }
+    }
+
+    .scoreboards-title {
+        padding-top: 3rem;
+    }
+}

@@ -1,0 +1,16 @@
+{
+  "files": {
+    "main.css": "/static/css/main.120da316.css",
+    "main.js": "/static/js/main.d2a21c09.js",
+    "static/js/453.461884eb.chunk.js": "/static/js/453.461884eb.chunk.js",
+    "static/media/notKahoot.png": "/static/media/notKahoot.c86aabc2b51f3cf8b89a.png",
+    "index.html": "/index.html",
+    "main.120da316.css.map": "/static/css/main.120da316.css.map",
+    "main.d2a21c09.js.map": "/static/js/main.d2a21c09.js.map",
+    "453.461884eb.chunk.js.map": "/static/js/453.461884eb.chunk.js.map"
+  },
+  "entrypoints": [
+    "static/css/main.120da316.css",
+    "static/js/main.d2a21c09.js"
+  ]
+}

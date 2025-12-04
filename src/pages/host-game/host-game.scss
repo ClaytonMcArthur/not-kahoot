@@ -1,0 +1,62 @@
+@import '../../_variables.scss';
+
+@import '../../_variables.scss';
+
+.host-game {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+
+    .game-inputs {
+        width: 20rem;
+        background-color: white;
+        padding: 2rem;
+        border-radius: 10px;
+        box-shadow: 0 0 1rem rgba(0, 0, 0, 0.25);
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        gap: 2rem;
+
+        .button {
+            width: 85%;
+            align-self: center;
+        }
+
+        h2 {
+            margin-bottom: -1rem;
+        }
+
+        .set-game-visibility,
+        .set-player-max {
+            display: flex;
+            flex-direction: row;
+            justify-content: space-between;
+            width: 100%;
+            gap: 2rem;
+
+            .button {
+                background-color: white;
+                color: $MainPurple;
+                border: 2px solid $MainPurple;
+
+                &.selected {
+                    background-color: $MainPurple;
+                    color: white;
+                    border: none;
+                }
+            }
+        }
+
+        .set-player-max {
+            gap: 1rem;
+
+            .button {
+                flex: 1;
+                padding: 0.5rem 0;
+                font-size: 1rem;
+            }
+        }
+    }
+}

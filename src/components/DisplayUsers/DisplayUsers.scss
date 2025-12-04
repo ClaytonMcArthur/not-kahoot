@@ -1,0 +1,16 @@
+@import '../../variables.scss';
+
+.display-users {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 1rem;
+    padding: 1rem;
+
+    .individual-user {
+        color: $MainPurple;
+        padding: 1rem;
+        text-align: center;
+        font-weight: bold;
+        font-size: 1.5rem;
+    }
+}

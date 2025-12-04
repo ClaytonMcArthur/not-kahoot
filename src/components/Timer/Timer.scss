@@ -1,0 +1,16 @@
+@import '../../variables.scss';
+
+.timer-section {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background-color: $MainPurple;
+    border-radius: 50%;
+    height: 100px;
+    width: 100px;
+
+    .current-time {
+        font-size: 1.5rem;
+        color: white;
+    }
+}

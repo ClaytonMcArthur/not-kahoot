@@ -1,0 +1,42 @@
+@import '../../_variables.scss';
+
+.open-game {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+
+    .button {
+        position: absolute;
+        top: 2rem;
+        align-self: flex-end;
+        right: 3rem;
+    }
+
+    .end-game {
+        .button {
+            position: absolute;
+            top: 7rem;
+            align-self: flex-end;
+            right: 3rem;
+        }
+    }
+
+    h1,
+    h2 {
+        text-align: center;
+    }
+
+    .number-players {
+        position: absolute;
+        top: 2rem;
+        align-self: flex-start;
+        left: 3rem;
+    }
+
+    .question-submission {
+        .button {
+            position: inherit;
+        }
+    }
+}

@@ -1,0 +1,10 @@
+@import '../../_variables.scss';
+
+.active-game {
+    .button {
+        position: absolute;
+        top: 2rem;
+        align-self: flex-end;
+        right: 3rem;
+    }
+}

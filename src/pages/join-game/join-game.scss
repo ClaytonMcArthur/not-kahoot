@@ -1,0 +1,41 @@
+@import '../../_variables.scss';
+
+.join-game {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    gap: 3rem;
+    padding-bottom: 3rem;
+
+    .enter-game-pin {
+        width: 20rem;
+        background-color: white;
+        padding: 2rem;
+        border-radius: 10px;
+        box-shadow: 0 0 1rem rgba(0, 0, 0, 0.25);
+        color: white;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        gap: 2rem;
+
+        .button {
+            width: 85%;
+        }
+    }
+
+    .active-game-list {
+        width: 90%;
+        flex: 1;
+        display: flex;
+        justify-content: center;
+
+        .no-games-message {
+            font-size: 1.5rem;
+            align-self: center;
+        }
+    }
+}

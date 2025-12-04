@@ -1,0 +1,37 @@
+@import '../../variables.scss';
+
+.question-and-answer {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    background-color: white;
+    padding: 2rem;
+    border-radius: 10px;
+    box-shadow: 0 0 1rem rgba(0, 0, 0, 0.25);
+
+    .question {
+        font-size: 2rem;
+        margin: 0 auto;
+        padding-bottom: 2rem;
+    }
+
+    .answers {
+        display: flex;
+        flex-direction: row;
+        justify-content: space-around;
+        gap: 2rem;
+    }
+
+    .result {
+        padding-top: 2rem;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: flex-start;
+
+        p {
+            margin: 0;
+        }
+    }
+}

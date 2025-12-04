@@ -1,0 +1,20 @@
+@import '../../variables.scss';
+
+.all-questions-section {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    gap: 3rem;
+    align-items: center;
+    padding-top: 5rem;
+
+    .timer-section {
+        position: absolute;
+        top: 3rem;
+        left: 3rem;
+    }
+
+    .waiting-screen {
+        color: $MainPurple;
+    }
+}

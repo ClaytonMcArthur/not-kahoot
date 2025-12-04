@@ -1,0 +1,19 @@
+@import '../../variables.scss';
+
+.layout {
+
+    // Styles are nested here:
+    .main-content-container {
+        padding-top: 7rem;
+        width: 100%;
+    }
+}
+
+html,
+body,
+#root {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    height: 100%;
+}

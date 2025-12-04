@@ -1,0 +1,143 @@
+@import '../../variables.scss';
+
+.leaderboard {
+    width: 100%;
+    max-width: 100rem;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2rem;
+    padding-bottom: 2rem;
+
+    .winner-title,
+    .other-scorers-title {
+        margin: 0 auto;
+        color: $MainPurple;
+    }
+
+    .podium {
+        display: flex;
+        justify-content: center;
+        align-items: flex-end;
+        gap: 0.5rem;
+        width: 100%;
+        margin-top: 2rem;
+
+        .place {
+            background-color: white;
+            border-radius: 10px;
+            padding: 1rem;
+            text-align: center;
+            width: 8rem;
+            box-shadow: 0 0 1rem rgba(0, 0, 0, 0.15);
+            border: 2px solid $MainPurple;
+
+            &:hover {
+                transform: scale(1.025);
+            }
+
+            .rank-circle {
+                color: white;
+                background-color: $MainPurple;
+                border-radius: 50%;
+                font-size: 2rem;
+                height: 50px;
+                width: 50px;
+                text-align: center;
+                line-height: 50px;
+                margin: 0 auto;
+            }
+
+            .username {
+                display: block;
+                font-size: 1.2rem;
+                font-weight: bold;
+                margin-bottom: 0.3rem;
+                margin-top: 1.5rem;
+                color: $MainPurple;
+            }
+
+            .score {
+                display: block;
+                font-size: 1rem;
+                color: black;
+            }
+
+            .placeholder {
+                font-size: 1rem;
+                color: white;
+            }
+        }
+
+        .first {
+            font-size: 15rem;
+            border: 2px solid $KahootPurple;
+
+            .rank-circle {
+                font-size: 2.5rem;
+                height: 75px;
+                width: 75px;
+                line-height: 75px;
+                background-color: $KahootPurple;
+            }
+
+            .username {
+                font-size: 1.5rem;
+                color: $KahootPurple;
+            }
+        }
+
+        .second {
+            font-size: 10rem;
+        }
+
+        .third {
+            font-size: 5rem;
+        }
+    }
+
+    .others-list {
+        display: flex;
+        flex-direction: row;
+        justify-content: space-between;
+        gap: 2rem;
+        background-color: white;
+        box-shadow: 0 0 1rem rgba(0, 0, 0, 0.15);
+        border: 2px solid $MainPurple;
+        border-radius: 10px;
+        padding: 1.5rem;
+
+        .fourth,
+        .fifth {
+            background-color: white;
+            border: 2px solid $MainPurple;
+            border-radius: 10px;
+            width: 8rem;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: space-around;
+            gap: 0.5rem;
+
+            &:hover {
+                transform: scale(1.025);
+            }
+
+            .username {
+                font-size: 1.2rem;
+                color: $MainPurple;
+                font-weight: bold;
+            }
+
+            .rank {
+                font-size: 1.2rem;
+                align-self: flex-start;
+                padding-left: 0.5rem;
+                padding-top: 0.5rem;
+                color: $MainPurple;
+                font-weight: bold;
+            }
+        }
+    }
+}

@@ -1,0 +1,24 @@
+@import '../../variables.scss';
+
+.true {
+    background-color: $MainPurple;
+}
+
+.false {
+    background-color: $KahootPurple;
+}
+
+#answer-button {
+    font-size: 1.5rem;
+    text-transform: capitalize;
+    padding: 0.5rem 1rem;
+    border-radius: 10px;
+    color: white;
+    border: none;
+    cursor: pointer;
+    width: 15rem;
+
+    &:hover {
+        box-shadow: 0 0 1rem rgba(0, 0, 0, 0.25);
+    }
+}

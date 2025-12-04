@@ -1,0 +1,61 @@
+@import '../../variables.scss';
+
+.game-list {
+    width: 90%;
+    min-width: 350px;
+    flex: 1;
+    padding: 1rem 1.5rem;
+    border-radius: 10px;
+    box-shadow: 0 0 1rem rgba(0, 0, 0, 0.25);
+    color: $MainPurple;
+    border: 2px solid $MainPurple;
+
+    .active-game-list-title {
+        text-align: center;
+        margin-bottom: 1rem;
+        font-size: 2rem;
+        font-weight: bold;
+    }
+
+    .header-row,
+    .game-row {
+        display: flex;
+        justify-content: space-between;
+        padding: 0.5rem 1rem;
+        border-radius: 10px;
+        margin-bottom: 0.5rem;
+    }
+
+    .header-row {
+        background-color: $MainPurple;
+        font-weight: bold;
+        color: white;
+    }
+
+    .game-row {
+        transition: transform 0.15s;
+
+        &:hover {
+            transform: scale(1.025);
+        }
+    }
+
+    .theme-column {
+        flex: 3 1 0%;
+    }
+
+    .pin-column,
+    .players-column {
+        flex: 2 1 0%;
+    }
+
+    .join-column {
+        flex: 1 1 0%;
+
+        .button {
+            padding: 0.3rem;
+            width: 100%;
+            max-width: 6rem;
+        }
+    }
+}

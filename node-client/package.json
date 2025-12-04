@@ -1,0 +1,15 @@
+{
+  "name": "not-kahoot-node-app",
+  "version": "1.0.0",
+  "description": "Node app that runs the NotKahoot TCP game server and serves the React frontend",
+  "main": "client-api.js",
+  "scripts": {
+    "start": "node client-api.js",
+    "dev": "NODE_ENV=development node client-api.js"
+  },
+  "dependencies": {
+    "body-parser": "^1.20.0",
+    "cors": "^2.8.5",
+    "express": "^4.19.0"
+  }
+}
