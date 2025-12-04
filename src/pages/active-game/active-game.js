@@ -79,7 +79,7 @@ export const ActiveGame = () => {
         <Button buttonEvent={handleExitGame} buttonText="Exit" />
       )}
       <AllQuestions
-        gameQuestions={game.questions}
+        gameQuestions={game.questions || []}
         gamePin={game.pin}
         username={username}
         isHost={isHost}
