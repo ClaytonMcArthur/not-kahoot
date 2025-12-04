@@ -54,13 +54,17 @@ export function nextQuestion(gameId) {
 }
 
 export async function sendChat(pin, message, username) {
+    const finalUsername =
+        username ||
+        localStorage.getItem("username") ||
+        "Unknown";
+
     await fetch(`${BASE_URL}/chat`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ pin, message, username })
+        body: JSON.stringify({ pin, message, username: finalUsername })
     });
 }
-
 
 // Frontend SSE subscription to receive live game events
 let eventSource = null;
