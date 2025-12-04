@@ -173,7 +173,7 @@ export const OpenGame = () => {
               buttonEvent={async () => {
                 try {
                   // Server already has all questions from SUBMIT_QUESTION
-                  await startGame(game.pin);
+                  await startGame(game.pin, username);
                 } catch (err) {
                   console.error("Failed to start game:", err);
                 }
