@@ -116,7 +116,8 @@ class GameClient extends EventEmitter {
     this._send({
       type: "START_GAME",
       pin,
-      questions
+      username,
+      questions: []
     });
   }
 
@@ -142,7 +143,8 @@ class GameClient extends EventEmitter {
       type: "SUBMIT_QUESTION",
       pin,
       question,
-      answerTrue
+      answerTrue,
+      username
     });
   }
 
