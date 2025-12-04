@@ -262,17 +262,19 @@ function handleMessage(client, msg) {
     }
 
     case "CHAT": {
-      if (!client.currentPin || !client.username) return;
-      const { pin, message } = msg;
+      if (!client.currentPin) return;
+      const { pin, message, username } = msg;
       const game = games.get(pin);
       if (!game) return;
 
-      console.log("CHAT pin", pin, "from", client.username, "message", message);
+      const from = username || client.username || "Unknown";
+
+      console.log("CHAT pin", pin, "from", from, "message", message);
 
       broadcastToGame(pin, {
         type: "CHAT",
         pin,
-        from: client.username,
+        from,
         message
       });
       break;
