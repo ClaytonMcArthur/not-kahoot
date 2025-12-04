@@ -112,10 +112,11 @@ class GameClient extends EventEmitter {
     });
   }
 
-  startGame(pin) {
+  startGame(pin, questions) {
     this._send({
       type: "START_GAME",
-      pin
+      pin,
+      questions
     });
   }
 
