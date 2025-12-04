@@ -3,7 +3,7 @@ import { DisplayUsers } from "../../components/DisplayUsers/DisplayUsers";
 import { Button } from "../../components/Button/Button";
 import { Chat } from "../../components/Chat/Chat";
 import { AddQuestionModal } from "../../components/AddQuestionModal/AddQuestionModal";
-import { useLocation } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
 import {
   sendChat,
@@ -11,16 +11,17 @@ import {
   subscribeToGameEvents,
   removeGame,
   exitGame,
+  submitQuestion,
 } from "../../api/clientApi";
-import { useNavigate } from "react-router-dom";
 
 export const OpenGame = () => {
   const [questionsByPlayer, setQuestionsByPlayer] = useState({});
   const [isQuestionModalOpen, setIsQuestionModalOpen] = useState(false);
   const location = useLocation();
+  const navigate = useNavigate();
+
   const { game, username } = location.state || {};
   const [messages, setMessages] = useState([]);
-  const navigate = useNavigate();
   const [players, setPlayers] = useState(
     (game?.players || []).map((p) =>
       typeof p === "string" ? { username: p } : p
@@ -36,6 +37,7 @@ export const OpenGame = () => {
     })
   );
 
+  // Subscribe to SSE events
   useEffect(() => {
     if (!game) return;
 
@@ -55,6 +57,18 @@ export const OpenGame = () => {
           break;
         }
 
+        case "QUESTION_SUBMITTED": {
+          // Any player's submitted question gets merged into questionsByPlayer
+          setQuestionsByPlayer((prev) => ({
+            ...prev,
+            [msg.username]: {
+              question: msg.question,
+              answerTrue: msg.answerTrue,
+            },
+          }));
+          break;
+        }
+
         case "CHAT": {
           setMessages((prev) => [
             ...prev,
@@ -68,7 +82,7 @@ export const OpenGame = () => {
         }
 
         case "GAME_STARTED": {
-          // Navigate all players to active game
+          // Navigate all players to active game with the updated game state
           navigate("/active-game", { state: { game: msg.game, username } });
           break;
         }
@@ -112,7 +126,15 @@ export const OpenGame = () => {
       <AddQuestionModal
         isOpen={isQuestionModalOpen}
         onClose={() => setIsQuestionModalOpen(false)}
-        onSubmitQuestion={(q) => {
+        onSubmitQuestion={async (q) => {
+          // Send to server so everyone (especially host) gets it
+          try {
+            await submitQuestion(game.pin, q.question, q.answerTrue, username);
+          } catch (err) {
+            console.error("Failed to submit question:", err);
+          }
+
+          // Also update local state so this client sees its own question immediately
           setQuestionsByPlayer((prev) => ({
             ...prev,
             [username]: {
@@ -123,12 +145,14 @@ export const OpenGame = () => {
           setIsQuestionModalOpen(false);
         }}
       />
+
       <h3 className="number-players">
         Players: {players.length}/{game.maxPlayers}
       </h3>
       <h1>Waiting for players...</h1>
       <h2 className="game-theme">Theme: {game.theme}</h2>
       <h2 className="game-pin">Game PIN: {game.pin}</h2>
+
       <div className="question-submission">
         <Button
           buttonText="Add Question"
@@ -136,17 +160,20 @@ export const OpenGame = () => {
           disabled={!!questionsByPlayer[username]}
         />
       </div>
+
       <DisplayUsers
         users={players.map((p) => ({
           username: p.username,
           submitted: !!questionsByPlayer[p.username],
         }))}
       />
+
       <Chat
         messages={messages}
         user={username}
         onSendMessage={handleSendMessage}
       />
+
       {username === game.host ? (
         <div className="host-controls">
           <div className="start-game">
