@@ -106,15 +106,60 @@ app.post("/api/listGames", (req, res) => {
 });
 
 // POST /api/createGame { ...options }
-app.post("/api/createGame", (req, res) => {
+// Returns: { success: true, game: { ... } } after receiving GAME_CREATED from TCP server
+app.post("/api/createGame", async (req, res) => {
   console.log("HTTP /api/createGame", req.body);
   if (!client) {
     console.log("createGame error: no GameClient");
     return res.status(400).json({ ok: false, error: "Not connected" });
   }
+
   const options = req.body || {};
-  client.createGame(options);
-  return res.json({ ok: true });
+
+  try {
+    const game = await new Promise((resolve, reject) => {
+      // One-time listener for GAME_CREATED from TCP server
+      const handler = (msg) => {
+        console.log("Received GAME_CREATED from TCP:", msg);
+        client.removeListener("GAME_CREATED", handler);
+        resolve(msg.game);
+      };
+
+      client.once("GAME_CREATED", handler);
+
+      // Safety timeout so we don't hang forever
+      const timeout = setTimeout(() => {
+        client.removeListener("GAME_CREATED", handler);
+        reject(new Error("Timed out waiting for GAME_CREATED"));
+      }, 5000);
+
+      // Wrap resolve/reject to clear timeout
+      const resolveWrapped = (value) => {
+        clearTimeout(timeout);
+        resolve(value);
+      };
+      const rejectWrapped = (err) => {
+        clearTimeout(timeout);
+        reject(err);
+      };
+
+      // Actually send CREATE_GAME to TCP server
+      try {
+        client.createGame(options);
+      } catch (e) {
+        rejectWrapped(e);
+      }
+
+      // Override resolve/reject so timeout is cleared
+      resolve = resolveWrapped;
+      reject = rejectWrapped;
+    });
+
+    return res.json({ success: true, game });
+  } catch (err) {
+    console.error("createGame error:", err);
+    return res.status(500).json({ ok: false, error: err.message });
+  }
 });
 
 // POST /api/removeGame { pin } (stub)
