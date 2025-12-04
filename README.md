@@ -18,8 +18,8 @@ Not Kahoot is a multiplayer quiz game inspired by the classic Kahoot experience.
 if you need to change the front end run this from repo root!
 
 
-npm run build
-cp -R build node-client/
-git add build
-git commit -m "Something here"
-git push
+* npm run build
+* cp -R build node-client/
+* git add build
+* git commit -m "Something here"
+* git push
