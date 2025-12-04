@@ -20,7 +20,8 @@ function serializeGame(game) {
     host: game.host,
     state: game.state,
     players: Array.from(game.players),
-    scores: Object.fromEntries(game.scores.entries())
+    scores: Object.fromEntries(game.scores.entries()),
+    questions: game.questions || []
   };
 }
 
