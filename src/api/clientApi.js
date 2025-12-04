@@ -1,102 +1,188 @@
-// src/api/clientApi.js
-const BASE_URL =
-    process.env.NODE_ENV === "production"
-        ? "/api"
-        : "http://localhost:3001/api";
+// GameClient.js
+const net = require("net");
+const EventEmitter = require("events");
 
-async function post(path, body) {
-    const res = await fetch(`${BASE_URL}${path}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body || {}),
+class GameClient extends EventEmitter {
+  constructor(host, port, username) {
+    super();
+    this.host = host;
+    this.port = port;
+    this.username = username;
+    this.socket = null;
+    this.buffer = "";
+    this.connected = false;
+  }
+
+  connect() {
+    return new Promise((resolve, reject) => {
+      this.socket = net.createConnection(
+        { host: this.host, port: this.port },
+        () => {
+          console.log("GameClient connected to TCP server");
+          this.connected = true;
+          this._setupListeners();
+          resolve();
+        }
+      );
+
+      this.socket.on("error", (err) => {
+        console.error("GameClient socket error:", err);
+        this.emit("error", err);
+        if (!this.connected) {
+          reject(err);
+        }
+      });
+
+      this.socket.on("close", () => {
+        console.log("GameClient connection closed");
+        this.connected = false;
+        this.emit("disconnect");
+      });
     });
-    const data = await res.json();
-    if (!res.ok) {
-        throw new Error(data.error || "Request failed");
+  }
+
+  _setupListeners() {
+    this.socket.on("data", (data) => {
+      this.buffer += data.toString();
+      let index;
+      while ((index = this.buffer.indexOf("\n")) !== -1) {
+        const raw = this.buffer.slice(0, index);
+        this.buffer = this.buffer.slice(index + 1);
+        if (!raw.trim()) continue;
+
+        let msg;
+        try {
+          msg = JSON.parse(raw);
+        } catch (e) {
+          console.error("GameClient failed to parse message:", raw, e);
+          continue;
+        }
+
+        // Emit a generic event and a type-specific event
+        this.emit("message", msg);
+        if (msg.type) {
+          this.emit(msg.type, msg);
+        }
+      }
+    });
+  }
+
+  _send(obj) {
+    if (!this.socket || !this.connected) {
+      console.error("GameClient cannot send, not connected");
+      return;
     }
-    return data;
-}
+    const str = JSON.stringify(obj) + "\n";
+    this.socket.write(str);
+  }
 
-export function connect(username) {
-    return post("/connect", { username });
-}
+  // Protocol helpers
 
-export function listGames() {
-    return post("/listGames");
-}
-
-export function createGame(options) {
-    return post("/createGame", options);
-}
-
-export function removeGame(pin) {
-    return post("/removeGame", { pin });
-}
-
-export function startGame(pin, username) {
-  return post("/startGame", { pin, username });
-}
-
-export function joinGame(gameId) {
-    return post("/joinGame", { gameId });
-}
-
-export function exitGame(gameId) {
-    return post("/exitGame", { gameId });
-}
-
-export function sendAnswer(gameId, questionId, answer) {
-    return post("/sendAnswer", { gameId, questionId, answer });
-}
-
-export function nextQuestion(gameId) {
-    return post("/nextQuestion", { gameId });
-}
-
-export function submitQuestion(pin, question, answerTrue, username) {
-    const finalUsername =
-        username ||
-        localStorage.getItem("username") ||
-        "Unknown";
-
-    return post("/submitQuestion", {
-        pin,
-        question,
-        answerTrue,
-        username: finalUsername
+  register() {
+    this._send({
+      type: "REGISTER",
+      username: this.username,
     });
-}
+  }
 
-export async function sendChat(pin, message, username) {
-    const finalUsername =
-        username ||
-        localStorage.getItem("username") ||
-        "Unknown";
-
-    await fetch(`${BASE_URL}/chat`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ pin, message, username: finalUsername })
+  listGames() {
+    this._send({
+      type: "LIST_GAMES",
     });
-}
+  }
 
-// Frontend SSE subscription to receive live game events
-let eventSource = null;
-const subscribers = new Set();
+  createGame(options = {}) {
+    this._send({
+      type: "CREATE_GAME",
+      ...options,
+    });
+  }
 
-export function subscribeToGameEvents(callback) {
-    subscribers.add(callback);
+  joinGame(pin, username) {
+    const user = username || this.username;
+    this._send({
+      type: "JOIN_GAME",
+      pin,
+      username: user,
+    });
+  }
 
-    if (!eventSource) {
-        eventSource = new EventSource(`${BASE_URL.replace("/api", "")}/api/events`);
-        eventSource.onmessage = (e) => {
-            const msg = JSON.parse(e.data);
-            subscribers.forEach(cb => cb(msg));
-        };
-        eventSource.onerror = (err) => {
-            console.error("SSE error:", err);
-        };
+  exitGame(pin, username) {
+    const user = username || this.username;
+    this._send({
+      type: "EXIT_GAME",
+      pin,
+      username: user,
+    });
+  }
+
+  /**
+   * Start a game as the host.
+   * Called from client-api.js as: client.startGame(pin, username)
+   */
+  startGame(pin, username) {
+    const user = username || this.username;
+
+    console.log("GameClient.startGame", {
+      pin,
+      username: user,
+      questionsCount: 0,
+    });
+
+    this._send({
+      type: "START_GAME",
+      pin,
+      username: user,
+    });
+  }
+
+  sendAnswer(pin, correct, username) {
+    const user = username || this.username;
+    this._send({
+      type: "ANSWER",
+      pin,
+      correct,
+      username: user,
+    });
+  }
+
+  sendChat(pin, message, username) {
+    const user = username || this.username;
+    this._send({
+      type: "CHAT",
+      pin,
+      message,
+      username: user,
+    });
+  }
+
+  /**
+   * Submit a question for the current game.
+   */
+  submitQuestion(pin, question, answerTrue, username) {
+    const user = username || this.username;
+
+    console.log("GameClient.submitQuestion", {
+      pin,
+      username: user,
+      question,
+      answerTrue: !!answerTrue,
+    });
+
+    this._send({
+      type: "SUBMIT_QUESTION",
+      pin,
+      question,
+      answerTrue: !!answerTrue,
+      username: user,
+    });
+  }
+
+  close() {
+    if (this.socket) {
+      this.socket.end();
     }
-
-    return () => subscribers.delete(callback);
+  }
 }
+
+module.exports = GameClient;
