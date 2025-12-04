@@ -8,7 +8,8 @@ const TCP_PORT = process.env.TCP_PORT || 4000;
 const tcpClients = new Set(); // { socket, username, currentPin }
 
 // Games keyed by PIN, e.g. "483920"
-const games = new Map(); // pin -> { pin, host, players: Set<string>, state, scores: Map<string, number> }
+// game = { pin, host, state, players: Set<string>, scores: Map<string, number>, questions: Array }
+const games = new Map();
 
 function generatePin() {
   return Math.floor(100000 + Math.random() * 900000).toString();
@@ -134,18 +135,24 @@ function handleMessage(client, msg) {
         send(client.socket, { type: "ERROR", message: "Not registered" });
         return;
       }
+
+      // Optional extra info from the HTTP layer
+      const { username, theme, isPublic, maxPlayers } = msg;
+      const hostUser = username || client.username;
+
       const pin = generatePin();
       const game = {
         pin,
-        host: client.username,
+        host: hostUser,
         state: "lobby", // lobby | inProgress | ended
-        players: new Set([client.username]),
-        scores: new Map([[client.username, 0]])
+        players: new Set([hostUser]),
+        scores: new Map([[hostUser, 0]]),
+        questions: [] // IMPORTANT: server owns the question list
       };
       games.set(pin, game);
       client.currentPin = pin;
 
-      console.log("CREATE_GAME created pin", pin, "host", client.username);
+      console.log("CREATE_GAME created pin", pin, "host", hostUser);
 
       const payload = {
         type: "GAME_CREATED",
@@ -213,22 +220,35 @@ function handleMessage(client, msg) {
     }
 
     case "START_GAME": {
-      if (!client.currentPin) return;
-      const pin = client.currentPin;
+      // Prefer explicit pin from message, fall back to currentPin
+      const pin = msg.pin || client.currentPin;
+      if (!pin) return;
+
       const game = games.get(pin);
-      if (!game) return;
+      if (!game) {
+        console.log("START_GAME error: game not found for pin", pin);
+        send(client.socket, { type: "ERROR", message: "Game not found" });
+        return;
+      }
+
       if (game.host !== client.username) {
-        console.log("START_GAME error: non-host tried to start. host=", game.host, "user=", client.username);
+        console.log(
+          "START_GAME error: non-host tried to start. host=",
+          game.host,
+          "user=",
+          client.username
+        );
         send(client.socket, { type: "ERROR", message: "Only host can start" });
         return;
       }
 
-      // NEW: store questions into game state if provided
-      const questions = Array.isArray(msg.questions) ? msg.questions : [];
-      game.questions = questions;
+      // IMPORTANT: do NOT overwrite questions from the message.
+      // We rely on the questions accumulated via SUBMIT_QUESTION.
+      const qCount = Array.isArray(game.questions) ? game.questions.length : 0;
+      console.log("START_GAME pin", pin, "host", client.username, "questions:", qCount);
 
-      console.log("START_GAME pin", pin, "host", client.username, "questions:", questions.length);
       game.state = "inProgress";
+
       broadcastToGame(pin, {
         type: "GAME_STARTED",
         pin,
@@ -284,9 +304,23 @@ function handleMessage(client, msg) {
       if (!client.currentPin) return;
       const { pin, question, answerTrue, username } = msg;
       const game = games.get(pin);
-      if (!game) return;
+      if (!game) {
+        console.log("SUBMIT_QUESTION error: game not found for pin", pin);
+        send(client.socket, { type: "ERROR", message: "Game not found" });
+        return;
+      }
 
       const from = username || client.username || "Unknown";
+
+      if (!Array.isArray(game.questions)) {
+        game.questions = [];
+      }
+
+      const qObj = {
+        username: from,
+        question,
+        answerTrue: !!answerTrue
+      };
 
       console.log(
         "SUBMIT_QUESTION pin",
@@ -297,7 +331,10 @@ function handleMessage(client, msg) {
         question
       );
 
-      // Just broadcast it; the host will aggregate them in the frontend
+      // Store on the server so START_GAME can use them all
+      game.questions.push(qObj);
+
+      // Also broadcast so everyone can update their local UI
       broadcastToGame(pin, {
         type: "QUESTION_SUBMITTED",
         pin,
@@ -307,7 +344,6 @@ function handleMessage(client, msg) {
       });
       break;
     }
-
 
     default:
       console.log("Unknown message type:", type);
