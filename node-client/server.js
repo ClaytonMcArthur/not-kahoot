@@ -64,7 +64,6 @@ const server = net.createServer((socket) => {
 
       // Ignore obviously non-JSON lines (e.g., headers like "Host:", "User-Agent:")
       if (!raw.startsWith("{") && !raw.startsWith("[")) {
-        // Uncomment if you want to see them:
         // console.log("Ignoring non-JSON line on TCP port:", raw);
         continue;
       }
@@ -78,6 +77,7 @@ const server = net.createServer((socket) => {
         continue;
       }
 
+      console.log("handleMessage type:", msg.type, "raw:", raw);
       handleMessage(client, msg);
     }
   });
@@ -115,11 +115,13 @@ function handleMessage(client, msg) {
     case "REGISTER": {
       const { username } = msg;
       client.username = username;
+      console.log("REGISTER from", username);
       send(client.socket, { type: "REGISTER_OK", username });
       break;
     }
 
     case "LIST_GAMES": {
+      console.log("LIST_GAMES request");
       const list = Array.from(games.values()).map(serializeGame);
       send(client.socket, { type: "GAMES_LIST", games: list });
       break;
@@ -127,6 +129,7 @@ function handleMessage(client, msg) {
 
     case "CREATE_GAME": {
       if (!client.username) {
+        console.log("CREATE_GAME error: not registered");
         send(client.socket, { type: "ERROR", message: "Not registered" });
         return;
       }
@@ -141,6 +144,8 @@ function handleMessage(client, msg) {
       games.set(pin, game);
       client.currentPin = pin;
 
+      console.log("CREATE_GAME created pin", pin, "host", client.username);
+
       const payload = {
         type: "GAME_CREATED",
         game: serializeGame(game)
@@ -151,12 +156,14 @@ function handleMessage(client, msg) {
 
     case "JOIN_GAME": {
       if (!client.username) {
+        console.log("JOIN_GAME error: not registered");
         send(client.socket, { type: "ERROR", message: "Not registered" });
         return;
       }
       const { pin } = msg;
       const game = games.get(pin);
       if (!game) {
+        console.log("JOIN_GAME error: game not found for pin", pin);
         send(client.socket, { type: "ERROR", message: "Game not found" });
         return;
       }
@@ -166,6 +173,8 @@ function handleMessage(client, msg) {
         game.scores.set(client.username, 0);
       }
       client.currentPin = pin;
+
+      console.log("JOIN_GAME success. pin", pin, "username", client.username);
 
       const gameData = serializeGame(game);
       send(client.socket, { type: "JOINED_GAME", game: gameData });
@@ -182,6 +191,8 @@ function handleMessage(client, msg) {
       const pin = client.currentPin;
       const game = games.get(pin);
       if (!game) return;
+
+      console.log("EXIT_GAME pin", pin, "username", client.username);
 
       game.players.delete(client.username);
       game.scores.delete(client.username);
@@ -206,9 +217,11 @@ function handleMessage(client, msg) {
       const game = games.get(pin);
       if (!game) return;
       if (game.host !== client.username) {
+        console.log("START_GAME error: non-host tried to start. host=", game.host, "user=", client.username);
         send(client.socket, { type: "ERROR", message: "Only host can start" });
         return;
       }
+      console.log("START_GAME pin", pin, "host", client.username);
       game.state = "inProgress";
       broadcastToGame(pin, {
         type: "GAME_STARTED",
@@ -230,6 +243,8 @@ function handleMessage(client, msg) {
         game.scores.set(client.username, game.scores.get(client.username) + 1);
       }
 
+      console.log("ANSWER pin", pin, "username", client.username, "correct", !!correct);
+
       broadcastToGame(pin, {
         type: "SCORE_UPDATE",
         pin,
@@ -245,6 +260,9 @@ function handleMessage(client, msg) {
       const { pin, message } = msg;
       const game = games.get(pin);
       if (!game) return;
+
+      console.log("CHAT pin", pin, "from", client.username, "message", message);
+
       broadcastToGame(pin, {
         type: "CHAT",
         pin,
@@ -255,6 +273,7 @@ function handleMessage(client, msg) {
     }
 
     default:
+      console.log("Unknown message type:", type);
       send(client.socket, { type: "ERROR", message: `Unknown type: ${type}` });
   }
 }
