@@ -12,16 +12,30 @@ export const Login = () => {
     const [createAccountPassword, setCreateAccountPassword] = useState('');
     const navigate = useNavigate();
 
-    const handleLogin = () => {
-    };
-
-    const handleCreateAccount = async () => {
+    const handleLogin = async () => {
+        // Needs to additionally verify username in the database and that password is correct
         if (!createAccountUsername.trim() || !createAccountPassword.trim()) {
             alert('Username and password cannot be empty.');
             return;
         }
 
         try {
+            await connect(createAccountUsername.trim(), createAccountPassword.trim());
+            navigate('/home');
+        } catch (err) {
+            alert(`Login failed: ${err.message}`);
+        }
+    };
+
+    const handleCreateAccount = async () => {
+        // Needs to additionalyl verify username is NOT in the database
+        if (!createAccountUsername.trim() || !createAccountPassword.trim()) {
+            alert('Username and password cannot be empty.');
+            return;
+        }
+
+        try {
+            // Add new account to database as well
             await connect(createAccountUsername.trim(), createAccountPassword.trim());
             navigate('/home');
         } catch (err) {
