@@ -1,36 +1,26 @@
 import './home.scss';
 import { Button } from '../../components/Button/Button';
 import { Scoreboard } from '../../components/Scoreboard/Scoreboard';
-import notKahootLogo from '../../assets/notKahoot.png'
-import { Account } from '../../components/Account/Account';
-import { useEffect, useState } from 'react';
+import notKahootLogo from '../../assets/notKahoot.png';
+import { useNavigate } from 'react-router-dom';
 
 export const Home = () => {
-    const [username, setUsername] = useState(null);
-    const [isAccountOpen, setIsAccountOpen] = useState(false);
-
-    useEffect(() => {
-        const savedUsername = localStorage.getItem('username');
-        if (savedUsername) {
-            setUsername(savedUsername);
-        }
-    }, []);
+    const navigate = useNavigate();
+    const handleLogout = () => {
+        // Add logic to handle log out
+        navigate('/');
+    }
 
     return (
         <main className='home'>
-            <Account
-                isOpen={isAccountOpen}
-                onClose={() => setIsAccountOpen(false)}
-                onLogin={(name) => setUsername(name)}
-            />
             <div className='title-section'>
                 <img src={notKahootLogo} alt='Not Kahoot Logo' className='logo' />
                 <h1 className='title'>Welcome to... <span className='make-purple'>Not Kahoot!</span></h1>
             </div>
             <div className='registration'>
                 <Button
-                    buttonText={username ? `Account: ${username}` : 'Account'}
-                    buttonEvent={() => setIsAccountOpen(true)}
+                    buttonText='Logout'
+                    buttonEvent={() => handleLogout()}
                 />
             </div>
             <div className='home-buttons'>
