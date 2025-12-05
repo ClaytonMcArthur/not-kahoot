@@ -13,6 +13,7 @@ import {
   exitGame,
   submitQuestion,
 } from "../../api/clientApi";
+import { BackgroundMusic } from '../../components/BackgroundMusic/BackgroundMusic';
 
 export const OpenGame = () => {
   const [questionsByPlayer, setQuestionsByPlayer] = useState({});
@@ -187,6 +188,7 @@ export const OpenGame = () => {
       ) : (
         <Button buttonText="Exit" buttonEvent={handleExitGame} />
       )}
+      <BackgroundMusic />
     </main>
   );
 };

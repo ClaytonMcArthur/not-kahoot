@@ -9,6 +9,7 @@ import {
 } from "../../api/clientApi";
 import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
+import { BackgroundMusic } from '../../components/BackgroundMusic/BackgroundMusic';
 
 export const ActiveGame = () => {
   const location = useLocation();
@@ -92,6 +93,7 @@ export const ActiveGame = () => {
         user={username}
         onSendMessage={handleSendMessage}
       />
+      <BackgroundMusic />
     </main>
   );
 };
