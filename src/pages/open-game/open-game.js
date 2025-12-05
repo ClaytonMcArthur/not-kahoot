@@ -92,7 +92,7 @@ export const OpenGame = () => {
 
   const handleEndGame = async () => {
     try {
-      await removeGame(game.pin);
+      await removeGame({ gameId: game.id, pin: game.pin });
     } catch (err) {
       console.error("Failed to remove game:", err);
     }
@@ -111,15 +111,6 @@ export const OpenGame = () => {
   if (!game) {
     return <main className="open-game">No game data found.</main>;
   }
-
-  // Prepare collected questions for starting the game based on player submissions
-  const collectedQuestions = Object.entries(questionsByPlayer).map(
-    ([user, q]) => ({
-      username: user,
-      question: q.question,
-      answerTrue: q.answerTrue,
-    })
-  );
 
   return (
     <main className="open-game">
@@ -181,7 +172,7 @@ export const OpenGame = () => {
               buttonText="Start game"
               buttonEvent={async () => {
                 try {
-                  // IMPORTANT: pass (pin, username)
+                  // Server already has all questions from SUBMIT_QUESTION
                   await startGame(game.pin, username);
                 } catch (err) {
                   console.error("Failed to start game:", err);

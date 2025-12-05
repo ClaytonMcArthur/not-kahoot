@@ -1,62 +1,102 @@
 // src/api/clientApi.js
-const API_BASE = process.env.REACT_APP_API_BASE || "";
+const BASE_URL =
+    process.env.NODE_ENV === "production"
+        ? "/api"
+        : "http://localhost:3001/api";
 
-async function postJSON(path, body) {
-  const res = await fetch(`${API_BASE}${path}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body || {}),
-  });
-
-  if (!res.ok) {
-    let msg = `HTTP ${res.status}`;
-    try {
-      const data = await res.json();
-      if (data && data.error) msg = data.error;
-    } catch (e) {}
-    throw new Error(msg);
-  }
-
-  return res.json().catch(() => ({}));
+async function post(path, body) {
+    const res = await fetch(`${BASE_URL}${path}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body || {}),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+        throw new Error(data.error || "Request failed");
+    }
+    return data;
 }
 
-// --- existing helpers like connect, listGames, createGame, joinGame, exitGame, etc. ---
-
-export async function startGame(pin, username) {
-  // this must match client-api.js (Node) route:
-  // app.post("/api/startGame", (req, res) => { const { pin, username } = req.body; ... })
-  return postJSON("/api/startGame", { pin, username });
+export function connect(username) {
+    return post("/connect", { username });
 }
 
-export async function removeGame(pin) {
-  return postJSON("/api/removeGame", { pin });
+export function listGames() {
+    return post("/listGames");
 }
 
-export async function sendAnswer(gameId, questionId, answer) {
-  return postJSON("/api/sendAnswer", { gameId, questionId, answer });
+export function createGame(options) {
+    return post("/createGame", options);
 }
 
-export async function nextQuestion(gameId) {
-  return postJSON("/api/nextQuestion", { gameId });
+export function removeGame(pin) {
+    return post("/removeGame", { pin });
 }
+
+export function startGame(pin, username) {
+  return post("/startGame", { pin, username });
+}
+
+export function joinGame(gameId) {
+    return post("/joinGame", { gameId });
+}
+
+export function exitGame(gameId) {
+    return post("/exitGame", { gameId });
+}
+
+export function sendAnswer(gameId, questionId, answer) {
+    return post("/sendAnswer", { gameId, questionId, answer });
+}
+
+export function nextQuestion(gameId) {
+    return post("/nextQuestion", { gameId });
+}
+
+export function submitQuestion(pin, question, answerTrue, username) {
+    const finalUsername =
+        username ||
+        localStorage.getItem("username") ||
+        "Unknown";
+
+    return post("/submitQuestion", {
+        pin,
+        question,
+        answerTrue,
+        username: finalUsername
+    });
+}
+
+export async function sendChat(pin, message, username) {
+    const finalUsername =
+        username ||
+        localStorage.getItem("username") ||
+        "Unknown";
+
+    await fetch(`${BASE_URL}/chat`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pin, message, username: finalUsername })
+    });
+}
+
+// Frontend SSE subscription to receive live game events
+let eventSource = null;
+const subscribers = new Set();
 
 export function subscribeToGameEvents(callback) {
-  const es = new EventSource(`${API_BASE}/api/events`);
+    subscribers.add(callback);
 
-  es.onmessage = (event) => {
-    try {
-      const data = JSON.parse(event.data);
-      callback(data);
-    } catch (e) {
-      console.error("Failed to parse SSE event:", event.data, e);
+    if (!eventSource) {
+        eventSource = new EventSource(`${BASE_URL.replace("/api", "")}/api/events`);
+        eventSource.onmessage = (e) => {
+            const msg = JSON.parse(e.data);
+            subscribers.forEach(cb => cb(msg));
+        };
+        eventSource.onerror = (err) => {
+            console.error("SSE error:", err);
+        };
     }
-  };
 
-  es.onerror = (err) => {
-    console.error("SSE error:", err);
-  };
-
-  return () => {
-    es.close();
-  };
+    return () => subscribers.delete(callback);
 }

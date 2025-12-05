@@ -98,21 +98,17 @@ class GameClient extends EventEmitter {
     });
   }
 
-  joinGame(pin, username) {
-    const user = username || this.username;
+  joinGame(pin) {
     this._send({
       type: "JOIN_GAME",
       pin,
-      username: user,
     });
   }
 
-  exitGame(pin, username) {
-    const user = username || this.username;
+  exitGame(pin) {
     this._send({
       type: "EXIT_GAME",
       pin,
-      username: user,
     });
   }
 
@@ -120,44 +116,47 @@ class GameClient extends EventEmitter {
    * Start a game as the host.
    * Called from client-api.js as: client.startGame(pin, username)
    */
-  startGame(pin, username) {
+  startGame(pin, username, questions) {
     const user = username || this.username;
+    const qCount = Array.isArray(questions) ? questions.length : 0;
 
     console.log("GameClient.startGame", {
       pin,
       username: user,
-      questionsCount: 0,
+      questionsCount: qCount,
     });
 
+    // Server-side START_GAME now ignores questions from the message and uses
+    // the questions accumulated from SUBMIT_QUESTION, so we just send pin + username.
     this._send({
       type: "START_GAME",
       pin,
       username: user,
+      // questions: questions || []  // optional, safe to omit since server ignores it
     });
   }
 
-  sendAnswer(pin, correct, username) {
-    const user = username || this.username;
+  sendAnswer(pin, correct) {
     this._send({
       type: "ANSWER",
       pin,
       correct,
-      username: user,
     });
   }
 
   sendChat(pin, message, username) {
-    const user = username || this.username;
     this._send({
       type: "CHAT",
       pin,
       message,
-      username: user,
+      username,
     });
   }
 
   /**
    * Submit a question for the current game.
+   * Called from client-api.js as:
+   *   client.submitQuestion(pin, question, answerTrue, username)
    */
   submitQuestion(pin, question, answerTrue, username) {
     const user = username || this.username;
