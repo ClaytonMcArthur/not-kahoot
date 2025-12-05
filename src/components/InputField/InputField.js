@@ -7,13 +7,14 @@ import { useState } from 'react';
  * @param {String} props.default - the default value displayed initially in the input field.
  * @param {Function} props.onChange - function to handle input value changes
  * @param {String} props.value - current value of the input field
+ * @param {String} props.type - type of the input field (indicating if password where necessary)
  * @returns {JSX.Element}
  */
 export const InputField = (props) => {
     return (
         <div className='input-section'>
             <input
-                type='text'
+                type={props.type === 'password' ? 'password' : 'text'}
                 id='input'
                 placeholder={props.default}
                 value={props.value}

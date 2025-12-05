@@ -5,6 +5,27 @@ import { InputField } from '../../components/InputField/InputField';
 import { Button } from "../../components/Button/Button";
 
 export const Login = () => {
+    const [loginUsername, setLoginUsername] = useState('');
+    const [loginPassword, setLoginPassword] = useState('');
+    const [createAccountUsername, setCreateAccountUsername] = useState('');
+    const [createAccountPassword, setCreateAccountPassword] = useState('');
+
+    const handleLogin = () => {
+    };
+
+    const handleCreateAccount = async () => {
+        if (!createAccountUsername.trim() || !createAccountPassword.trim()) {
+            alert('Username and password cannot be empty.');
+            return;
+        }
+
+        try {
+            await connect(createAccountUsername.trim(), createAccountPassword.trim());
+        } catch (err) {
+            alert(`Account creation failed: ${err.message}`);
+        }
+    };
+
     return (
         <main className='login'>
             <div className='login-panel'>
@@ -13,18 +34,19 @@ export const Login = () => {
                     <div className='creat-account-section'>
                         <h2 className='create-account-header'>True</h2>
                         <InputField
-                            value={''}
-                            onChange={() => { }}
+                            value={createAccountUsername}
+                            onChange={(val) => setCreateAccountUsername(val)}
                             default='Username'
                         />
                         <InputField
-                            value={''}
-                            onChange={() => { }}
+                            value={createAccountPassword}
+                            onChange={(val) => setCreateAccountPassword(val)}
                             default='Password'
+                            type='password'
                         />
                         <div className='create-account-buttons'>
                             <Button
-                                buttonEvent={() => { }}
+                                buttonEvent={handleCreateAccount}
                                 buttonText='Create account'
                             />
                         </div>
@@ -32,18 +54,19 @@ export const Login = () => {
                     <div className='login-section'>
                         <h2 className='login-header'>False</h2>
                         <InputField
-                            value={''}
-                            onChange={() => { }}
+                            value={loginUsername}
+                            onChange={(val) => setLoginUsername(val)}
                             default='Username'
                         />
                         <InputField
-                            value={''}
-                            onChange={() => { }}
+                            value={loginPassword}
+                            onChange={(val) => setLoginPassword(val)}
                             default='Password'
+                            type='password'
                         />
                         <div className='login-buttons'>
                             <Button
-                                buttonEvent={() => { }}
+                                buttonEvent={handleLogin}
                                 buttonText='Login'
                             />
                         </div>
