@@ -12,4 +12,8 @@ input {
     border-radius: 10px;
     border: 2px solid $MainPurple;
     box-sizing: border-box;
+
+    &:focus {
+        outline: none;
+    }
 }

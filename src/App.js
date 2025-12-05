@@ -6,13 +6,15 @@ import { JoinGame } from './pages/join-game/join-game';
 import { ActiveGame } from './pages/active-game/active-game';
 import { HostGame } from './pages/host-game/host-game';
 import { OpenGame } from './pages/open-game/open-game';
+import { Login } from './pages/login/login';
 
 function App() {
   return (
     <BrowserRouter>
       <Routes>
         <Route path='/' element={<Layout />} >
-          <Route index element={<Home />} />
+          <Route index element={<Login />} />
+          <Route path='/home' element={<Home />} />
           <Route path='/join-game' element={<JoinGame />} />
           <Route path='/host-game' element={<HostGame />} />
           <Route path='/open-game' element={<OpenGame />} />

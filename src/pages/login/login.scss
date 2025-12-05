@@ -1,0 +1,61 @@
+@import '../../_variables.scss';
+
+.login {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+
+    .login-panel {
+        background-color: white;
+        padding: 2rem;
+        border-radius: 10px;
+        box-shadow: 0 0 1rem rgba(0, 0, 0, 0.25);
+        width: 50%;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        flex-direction: column;
+        gap: 2rem;
+
+        .account-sections {
+            display: flex;
+            width: 100%;
+            flex-direction: row;
+            justify-content: space-around;
+
+            .creat-account-section,
+            .login-section {
+                display: flex;
+                flex-direction: column;
+                gap: 1.5rem;
+                justify-content: center;
+                align-items: center;
+
+                .create-account-header {
+                    font-size: 2rem;
+                    font-weight: bold;
+                    color: $MainPurple;
+                    margin: 0;
+                }
+
+                .login-header {
+                    font-size: 2rem;
+                    font-weight: bold;
+                    color: $KahootPurple;
+                    margin: 0;
+                }
+            }
+
+            .login-section {
+                .button {
+                    background-color: $KahootPurple;
+                }
+
+                input {
+                    border: 2px solid $KahootPurple;
+                }
+            }
+        }
+    }
+}
