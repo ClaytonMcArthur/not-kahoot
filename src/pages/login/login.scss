@@ -12,17 +12,23 @@
         border-radius: 10px;
         box-shadow: 0 0 1rem rgba(0, 0, 0, 0.25);
         width: 50%;
+        min-width: 30rem;
         display: flex;
         justify-content: center;
         align-items: center;
         flex-direction: column;
         gap: 2rem;
 
+        .account-question {
+            font-size: 2.5rem;
+        }
+
         .account-sections {
             display: flex;
             width: 100%;
             flex-direction: row;
             justify-content: space-around;
+            gap: 2rem;
 
             .creat-account-section,
             .login-section {

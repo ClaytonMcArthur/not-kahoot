@@ -29,7 +29,7 @@ export const Login = () => {
     return (
         <main className='login'>
             <div className='login-panel'>
-                <h1 className='account-question'>Already have an account?</h1>
+                <h1 className='account-question'>Need to create an account?</h1>
                 <div className='account-sections'>
                     <div className='creat-account-section'>
                         <h2 className='create-account-header'>True</h2>
