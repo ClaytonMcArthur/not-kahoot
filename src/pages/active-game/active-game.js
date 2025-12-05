@@ -73,7 +73,7 @@ export const ActiveGame = () => {
     } catch (err) {
       console.error("Failed to exit game:", err);
     }
-    navigate("/");
+    navigate("/home");
   };
 
   return (

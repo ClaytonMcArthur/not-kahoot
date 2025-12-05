@@ -3,12 +3,14 @@ import { useState } from "react";
 import { connect } from "../../api/clientApi";
 import { InputField } from '../../components/InputField/InputField';
 import { Button } from "../../components/Button/Button";
+import { useNavigate } from 'react-router-dom';
 
 export const Login = () => {
     const [loginUsername, setLoginUsername] = useState('');
     const [loginPassword, setLoginPassword] = useState('');
     const [createAccountUsername, setCreateAccountUsername] = useState('');
     const [createAccountPassword, setCreateAccountPassword] = useState('');
+    const navigate = useNavigate();
 
     const handleLogin = () => {
     };
@@ -21,6 +23,7 @@ export const Login = () => {
 
         try {
             await connect(createAccountUsername.trim(), createAccountPassword.trim());
+            navigate('/home');
         } catch (err) {
             alert(`Account creation failed: ${err.message}`);
         }

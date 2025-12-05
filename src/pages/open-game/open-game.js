@@ -97,7 +97,7 @@ export const OpenGame = () => {
     } catch (err) {
       console.error("Failed to remove game:", err);
     }
-    navigate("/");
+    navigate("/home");
   };
 
   const handleExitGame = async () => {
@@ -106,7 +106,7 @@ export const OpenGame = () => {
     } catch (err) {
       console.error("Failed to exit game:", err);
     }
-    navigate("/");
+    navigate("/home");
   };
 
   if (!game) {
