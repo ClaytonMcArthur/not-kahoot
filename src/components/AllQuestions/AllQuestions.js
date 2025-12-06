@@ -26,6 +26,7 @@ export const AllQuestions = (props) => {
   const [gameEnd, setGameEnd] = useState(false);
   const [playerAnswers, setPlayerAnswers] = useState({});
   const [scores, setScores] = useState({});
+  const ranking = Object.entries(scores || {}).map(([username, score]) => ({ username, score })).sort((a, b) => b.score - a.score);
 
   // Subscribe to live game events for scores or host actions
   useEffect(() => {
@@ -148,12 +149,14 @@ export const AllQuestions = (props) => {
       ) : (
         <div className="current-ranking">
           <Ranking
-            topFive={Object.entries(scores || {})
-              .map(([username, score]) => ({ username, score })) // map to objects
-              .sort((a, b) => b.score - a.score) // sort descending
-              .slice(0, 5)} // take top 5
+            topFive={ranking.slice(0, 5)} // take top 5
             gameEnd={isLastQuestion || gameEnd}
           />
+          <div className="user-score">
+            <h3>Your Current Standing</h3>
+            <p className="rank">Rank: {ranking.findIndex(r => r.username === props.username) + 1 || 'unranked'}</p>
+            <p className="score">Score: {scores[props.username] || 0}</p>
+          </div>
           {props.isHost && (gameEnd || isLastQuestion) ? (
             <Button buttonText="End game" buttonLink="/" />
           ) : (

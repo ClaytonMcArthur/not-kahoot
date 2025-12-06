@@ -17,4 +17,30 @@
     .waiting-screen {
         color: $MainPurple;
     }
+
+    .user-score {
+        position: absolute;
+        bottom: 2rem;
+        left: 2rem;
+
+        background-color: white;
+        padding: 2rem;
+        border-radius: 10px;
+        box-shadow: 0 0 1rem rgba(0, 0, 0, 0.25);
+
+        .score-title {
+            color: $MainPurple;
+            text-align: center;
+            margin: 0;
+            padding-bottom: 1rem;
+        }
+
+        .rank {
+            padding-bottom: 0.5rem;
+        }
+
+        p {
+            margin: 0;
+        }
+    }
 }
