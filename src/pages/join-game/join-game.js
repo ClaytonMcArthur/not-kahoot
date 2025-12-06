@@ -2,9 +2,9 @@ import './join-game.scss';
 import { Button } from '../../components/Button/Button';
 import { InputField } from '../../components/InputField/InputField';
 import { GameList } from '../../components/GameList/GameList';
-import { useEffect, useState } from "react";
-import { listGames, joinGame } from "../../api/clientApi";
-import { useNavigate, useLocation } from "react-router-dom";
+import { useEffect, useState } from 'react';
+import { listGames, joinGame } from '../../api/clientApi';
+import { useNavigate, useLocation } from 'react-router-dom';
 
 export const JoinGame = () => {
     const [availableGames, setAvailableGames] = useState([]);
@@ -26,14 +26,14 @@ export const JoinGame = () => {
 
     // Handle joining a game via pin entry
     const handleJoinByPin = async () => {
-       const pin = gamePin.trim();
-       if(!pin) return;
+        const pin = gamePin.trim();
+        if (!pin) return;
         try {
             await joinGame(gamePin);
             // Navigate to active game screen after joining
-            navigate('/open-game', { state: { game: { pin, host: null, players:[]}, username}});
+            navigate('/open-game', { state: { game: { pin, host: null, players: [] }, username } });
         }
-        catch (err){ 
+        catch (err) {
             console.error('Error joining game by pin:', err);
         }
     };

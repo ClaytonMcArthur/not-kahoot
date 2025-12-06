@@ -1,10 +1,10 @@
-import "./open-game.scss";
-import { DisplayUsers } from "../../components/DisplayUsers/DisplayUsers";
-import { Button } from "../../components/Button/Button";
-import { Chat } from "../../components/Chat/Chat";
-import { AddQuestionModal } from "../../components/AddQuestionModal/AddQuestionModal";
-import { useLocation, useNavigate } from "react-router-dom";
-import { useState, useEffect } from "react";
+import './open-game.scss';
+import { DisplayUsers } from '../../components/DisplayUsers/DisplayUsers';
+import { Button } from '../../components/Button/Button';
+import { Chat } from '../../components/Chat/Chat';
+import { AddQuestionModal } from '../../components/AddQuestionModal/AddQuestionModal';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { useState, useEffect } from 'react';
 import {
   sendChat,
   startGame,
@@ -12,7 +12,7 @@ import {
   removeGame,
   exitGame,
   submitQuestion,
-} from "../../api/clientApi";
+} from '../../api/clientApi';
 import { BackgroundMusic } from '../../components/BackgroundMusic/BackgroundMusic';
 
 export const OpenGame = () => {
@@ -25,7 +25,7 @@ export const OpenGame = () => {
   const [messages, setMessages] = useState([]);
   const [players, setPlayers] = useState(
     (game?.players || []).map((p) =>
-      typeof p === "string" ? { username: p } : p
+      typeof p === 'string' ? { username: p } : p
     )
   );
 
@@ -38,18 +38,18 @@ export const OpenGame = () => {
       if (!msg.pin || msg.pin !== game.pin) return;
 
       switch (msg.type) {
-        case "PLAYER_JOINED":
-        case "PLAYER_LEFT":
-        case "SCORE_UPDATE": {
+        case 'PLAYER_JOINED':
+        case 'PLAYER_LEFT':
+        case 'SCORE_UPDATE': {
           // Update players from the latest game state
           const playersFromGame = (msg.game?.players || []).map((p) =>
-            typeof p === "string" ? { username: p } : p
+            typeof p === 'string' ? { username: p } : p
           );
           setPlayers(playersFromGame);
           break;
         }
 
-        case "QUESTION_SUBMITTED": {
+        case 'QUESTION_SUBMITTED': {
           // Any player's submitted question gets merged into questionsByPlayer
           setQuestionsByPlayer((prev) => ({
             ...prev,
@@ -61,7 +61,7 @@ export const OpenGame = () => {
           break;
         }
 
-        case "CHAT": {
+        case 'CHAT': {
           setMessages((prev) => [
             ...prev,
             {
@@ -73,9 +73,9 @@ export const OpenGame = () => {
           break;
         }
 
-        case "GAME_STARTED": {
+        case 'GAME_STARTED': {
           // Navigate all players to active game with the updated game state
-          navigate("/active-game", { state: { game: msg.game, username } });
+          navigate('/active-game', { state: { game: msg.game, username } });
           break;
         }
 
@@ -95,26 +95,26 @@ export const OpenGame = () => {
     try {
       await removeGame({ gameId: game.id, pin: game.pin });
     } catch (err) {
-      console.error("Failed to remove game:", err);
+      console.error('Failed to remove game:', err);
     }
-    navigate("/home");
+    navigate('/home');
   };
 
   const handleExitGame = async () => {
     try {
       await exitGame(game.pin, username);
     } catch (err) {
-      console.error("Failed to exit game:", err);
+      console.error('Failed to exit game:', err);
     }
-    navigate("/home");
+    navigate('/home');
   };
 
   if (!game) {
-    return <main className="open-game">No game data found.</main>;
+    return <main className='open-game'>No game data found.</main>;
   }
 
   return (
-    <main className="open-game">
+    <main className='open-game'>
       <AddQuestionModal
         isOpen={isQuestionModalOpen}
         onClose={() => setIsQuestionModalOpen(false)}
@@ -123,7 +123,7 @@ export const OpenGame = () => {
           try {
             await submitQuestion(game.pin, q.question, q.answerTrue, username);
           } catch (err) {
-            console.error("Failed to submit question:", err);
+            console.error('Failed to submit question:', err);
           }
 
           // Also update local state so this client sees its own question immediately
@@ -138,16 +138,16 @@ export const OpenGame = () => {
         }}
       />
 
-      <h3 className="number-players">
+      <h3 className='number-players'>
         Players: {players.length}/{game.maxPlayers}
       </h3>
       <h1>Waiting for players...</h1>
-      <h2 className="game-theme">Theme: {game.theme}</h2>
-      <h2 className="game-pin">Game PIN: {game.pin}</h2>
+      <h2 className='game-theme'>Theme: {game.theme}</h2>
+      <h2 className='game-pin'>Game PIN: {game.pin}</h2>
 
-      <div className="question-submission">
+      <div className='question-submission'>
         <Button
-          buttonText="Add Question"
+          buttonText='Add Question'
           buttonEvent={() => setIsQuestionModalOpen(true)}
           disabled={!!questionsByPlayer[username]}
         />
@@ -167,26 +167,26 @@ export const OpenGame = () => {
       />
 
       {username === game.host ? (
-        <div className="host-controls">
-          <div className="start-game">
+        <div className='host-controls'>
+          <div className='start-game'>
             <Button
-              buttonText="Start game"
+              buttonText='Start game'
               buttonEvent={async () => {
                 try {
                   // Server already has all questions from SUBMIT_QUESTION
                   await startGame(game.pin, username);
                 } catch (err) {
-                  console.error("Failed to start game:", err);
+                  console.error('Failed to start game:', err);
                 }
               }}
             />
           </div>
-          <div className="end-game">
-            <Button buttonText="End game" buttonEvent={handleEndGame} />
+          <div className='end-game'>
+            <Button buttonText='End game' buttonEvent={handleEndGame} />
           </div>
         </div>
       ) : (
-        <Button buttonText="Exit" buttonEvent={handleExitGame} />
+        <Button buttonText='Exit' buttonEvent={handleExitGame} />
       )}
       <BackgroundMusic />
     </main>

@@ -1,6 +1,6 @@
 // GameClient.js
-const net = require("net");
-const EventEmitter = require("events");
+const net = require('net');
+const EventEmitter = require('events');
 
 class GameClient extends EventEmitter {
   constructor(host, port, username) {
@@ -9,7 +9,7 @@ class GameClient extends EventEmitter {
     this.port = port;
     this.username = username;
     this.socket = null;
-    this.buffer = "";
+    this.buffer = '';
     this.connected = false;
   }
 
@@ -18,34 +18,34 @@ class GameClient extends EventEmitter {
       this.socket = net.createConnection(
         { host: this.host, port: this.port },
         () => {
-          console.log("GameClient connected to TCP server");
+          console.log('GameClient connected to TCP server');
           this.connected = true;
           this._setupListeners();
           resolve();
         }
       );
 
-      this.socket.on("error", (err) => {
-        console.error("GameClient socket error:", err);
-        this.emit("error", err);
+      this.socket.on('error', (err) => {
+        console.error('GameClient socket error:', err);
+        this.emit('error', err);
         if (!this.connected) {
           reject(err);
         }
       });
 
-      this.socket.on("close", () => {
-        console.log("GameClient connection closed");
+      this.socket.on('close', () => {
+        console.log('GameClient connection closed');
         this.connected = false;
-        this.emit("disconnect");
+        this.emit('disconnect');
       });
     });
   }
 
   _setupListeners() {
-    this.socket.on("data", (data) => {
+    this.socket.on('data', (data) => {
       this.buffer += data.toString();
       let index;
-      while ((index = this.buffer.indexOf("\n")) !== -1) {
+      while ((index = this.buffer.indexOf('\n')) !== -1) {
         const raw = this.buffer.slice(0, index);
         this.buffer = this.buffer.slice(index + 1);
         if (!raw.trim()) continue;
@@ -54,12 +54,12 @@ class GameClient extends EventEmitter {
         try {
           msg = JSON.parse(raw);
         } catch (e) {
-          console.error("GameClient failed to parse message:", raw, e);
+          console.error('GameClient failed to parse message:', raw, e);
           continue;
         }
 
         // Emit a generic event and a type-specific event
-        this.emit("message", msg);
+        this.emit('message', msg);
         if (msg.type) {
           this.emit(msg.type, msg);
         }
@@ -69,10 +69,10 @@ class GameClient extends EventEmitter {
 
   _send(obj) {
     if (!this.socket || !this.connected) {
-      console.error("GameClient cannot send, not connected");
+      console.error('GameClient cannot send, not connected');
       return;
     }
-    const str = JSON.stringify(obj) + "\n";
+    const str = JSON.stringify(obj) + '\n';
     this.socket.write(str);
   }
 
@@ -80,34 +80,34 @@ class GameClient extends EventEmitter {
 
   register() {
     this._send({
-      type: "REGISTER",
+      type: 'REGISTER',
       username: this.username,
     });
   }
 
   listGames() {
     this._send({
-      type: "LIST_GAMES",
+      type: 'LIST_GAMES',
     });
   }
 
   createGame(options = {}) {
     this._send({
-      type: "CREATE_GAME",
+      type: 'CREATE_GAME',
       ...options,
     });
   }
 
   joinGame(pin) {
     this._send({
-      type: "JOIN_GAME",
+      type: 'JOIN_GAME',
       pin,
     });
   }
 
   exitGame(pin) {
     this._send({
-      type: "EXIT_GAME",
+      type: 'EXIT_GAME',
       pin,
     });
   }
@@ -120,7 +120,7 @@ class GameClient extends EventEmitter {
     const user = username || this.username;
     const qCount = Array.isArray(questions) ? questions.length : 0;
 
-    console.log("GameClient.startGame", {
+    console.log('GameClient.startGame', {
       pin,
       username: user,
       questionsCount: qCount,
@@ -129,7 +129,7 @@ class GameClient extends EventEmitter {
     // Server-side START_GAME now ignores questions from the message and uses
     // the questions accumulated from SUBMIT_QUESTION, so we just send pin + username.
     this._send({
-      type: "START_GAME",
+      type: 'START_GAME',
       pin,
       username: user,
       // questions: questions || []  // optional, safe to omit since server ignores it
@@ -138,7 +138,7 @@ class GameClient extends EventEmitter {
 
   sendAnswer(pin, correct) {
     this._send({
-      type: "ANSWER",
+      type: 'ANSWER',
       pin,
       correct,
     });
@@ -146,7 +146,7 @@ class GameClient extends EventEmitter {
 
   sendChat(pin, message, username) {
     this._send({
-      type: "CHAT",
+      type: 'CHAT',
       pin,
       message,
       username,
@@ -161,7 +161,7 @@ class GameClient extends EventEmitter {
   submitQuestion(pin, question, answerTrue, username) {
     const user = username || this.username;
 
-    console.log("GameClient.submitQuestion", {
+    console.log('GameClient.submitQuestion', {
       pin,
       username: user,
       question,
@@ -169,7 +169,7 @@ class GameClient extends EventEmitter {
     });
 
     this._send({
-      type: "SUBMIT_QUESTION",
+      type: 'SUBMIT_QUESTION',
       pin,
       question,
       answerTrue: !!answerTrue,

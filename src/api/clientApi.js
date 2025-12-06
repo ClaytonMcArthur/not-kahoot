@@ -1,65 +1,65 @@
 // src/api/clientApi.js
 const BASE_URL =
-    process.env.NODE_ENV === "production"
-        ? "/api"
-        : "http://localhost:3001/api";
+    process.env.NODE_ENV === 'production'
+        ? '/api'
+        : 'http://localhost:3001/api';
 
 async function post(path, body) {
     const res = await fetch(`${BASE_URL}${path}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body || {}),
     });
     const data = await res.json();
     if (!res.ok) {
-        throw new Error(data.error || "Request failed");
+        throw new Error(data.error || 'Request failed');
     }
     return data;
 }
 
 export function connect(username) {
-    return post("/connect", { username });
+    return post('/connect', { username });
 }
 
 export function listGames() {
-    return post("/listGames");
+    return post('/listGames');
 }
 
 export function createGame(options) {
-    return post("/createGame", options);
+    return post('/createGame', options);
 }
 
 export function removeGame(pin) {
-    return post("/removeGame", { pin });
+    return post('/removeGame', { pin });
 }
 
 export function startGame(pin, username) {
-  return post("/startGame", { pin, username });
+    return post('/startGame', { pin, username });
 }
 
 export function joinGame(gameId) {
-    return post("/joinGame", { gameId });
+    return post('/joinGame', { gameId });
 }
 
 export function exitGame(gameId) {
-    return post("/exitGame", { gameId });
+    return post('/exitGame', { gameId });
 }
 
 export function sendAnswer(gameId, questionId, answer) {
-    return post("/sendAnswer", { gameId, questionId, answer });
+    return post('/sendAnswer', { gameId, questionId, answer });
 }
 
 export function nextQuestion(gameId) {
-    return post("/nextQuestion", { gameId });
+    return post('/nextQuestion', { gameId });
 }
 
 export function submitQuestion(pin, question, answerTrue, username) {
     const finalUsername =
         username ||
-        localStorage.getItem("username") ||
-        "Unknown";
+        localStorage.getItem('username') ||
+        'Unknown';
 
-    return post("/submitQuestion", {
+    return post('/submitQuestion', {
         pin,
         question,
         answerTrue,
@@ -70,12 +70,12 @@ export function submitQuestion(pin, question, answerTrue, username) {
 export async function sendChat(pin, message, username) {
     const finalUsername =
         username ||
-        localStorage.getItem("username") ||
-        "Unknown";
+        localStorage.getItem('username') ||
+        'Unknown';
 
     await fetch(`${BASE_URL}/chat`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ pin, message, username: finalUsername })
     });
 }
@@ -88,13 +88,13 @@ export function subscribeToGameEvents(callback) {
     subscribers.add(callback);
 
     if (!eventSource) {
-        eventSource = new EventSource(`${BASE_URL.replace("/api", "")}/api/events`);
+        eventSource = new EventSource(`${BASE_URL.replace('/api', '')}/api/events`);
         eventSource.onmessage = (e) => {
             const msg = JSON.parse(e.data);
             subscribers.forEach(cb => cb(msg));
         };
         eventSource.onerror = (err) => {
-            console.error("SSE error:", err);
+            console.error('SSE error:', err);
         };
     }
 

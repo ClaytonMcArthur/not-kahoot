@@ -1,14 +1,14 @@
-import "./AllQuestions.scss";
-import { useState, useEffect } from "react";
-import { Question } from "../Question/Question";
-import { Ranking } from "../Ranking/Ranking";
-import { Button } from "../Button/Button";
-import { Timer } from "../Timer/Timer";
+import './AllQuestions.scss';
+import { useState, useEffect } from 'react';
+import { Question } from '../Question/Question';
+import { Ranking } from '../Ranking/Ranking';
+import { Button } from '../Button/Button';
+import { Timer } from '../Timer/Timer';
 import {
   sendAnswer,
   nextQuestion,
   subscribeToGameEvents,
-} from "../../api/clientApi";
+} from '../../api/clientApi';
 
 /**
  * Component that maintains game state and renders all of the questions, answers, and rankings in the game.
@@ -34,7 +34,7 @@ export const AllQuestions = (props) => {
       if (!msg.pin || msg.pin !== props.gamePin) return;
 
       switch (msg.type) {
-        case "SCORE_UPDATE": {
+        case 'SCORE_UPDATE': {
           // Server sends { type: 'SCORE_UPDATE', game: { scores: {...} }, ... }
           if (msg.game && msg.game.scores) {
             setScores(msg.game.scores);
@@ -42,7 +42,7 @@ export const AllQuestions = (props) => {
           break;
         }
 
-        case "NEXT_QUESTION": {
+        case 'NEXT_QUESTION': {
           // Advance to the next question for EVERYONE in this game
           setIsQuestionActive(true);
           setIsAnswered(false);
@@ -65,7 +65,7 @@ export const AllQuestions = (props) => {
           break;
         }
 
-        case "GAME_ENDED": {
+        case 'GAME_ENDED': {
           // In case you ever add this event type on the server
           setGameEnd(true);
           setIsQuestionActive(false);
@@ -84,7 +84,7 @@ export const AllQuestions = (props) => {
   // ---- Early guard AFTER hooks (to satisfy React hook rules) ----
   if (!props.gameQuestions || props.gameQuestions.length === 0) {
     return (
-      <div className="all-questions-section">Loading questions...</div>
+      <div className='all-questions-section'>Loading questions...</div>
     );
   }
 
@@ -102,7 +102,7 @@ export const AllQuestions = (props) => {
       try {
         await nextQuestion(props.gamePin);
       } catch (error) {
-        console.error("Error advancing to next question:", error);
+        console.error('Error advancing to next question:', error);
       }
     }
     // Everyone (host + players) moves when the SSE { type: 'NEXT_QUESTION' } arrives.
@@ -131,14 +131,14 @@ export const AllQuestions = (props) => {
   };
 
   return (
-    <div className="all-questions-section">
+    <div className='all-questions-section'>
       {isQuestionActive && (
-        <Timer countdown="15" onTimeUp={handleTimeUp} />
+        <Timer countdown='15' onTimeUp={handleTimeUp} />
       )}
 
       {isQuestionActive ? (
         isAnswered ? (
-          <h2 className="waiting-screen">Waiting for others...</h2>
+          <h2 className='waiting-screen'>Waiting for others...</h2>
         ) : (
           <Question
             question={currentQuestion.question}
@@ -147,21 +147,21 @@ export const AllQuestions = (props) => {
           />
         )
       ) : (
-        <div className="current-ranking">
+        <div className='current-ranking'>
           <Ranking
             topFive={ranking.slice(0, 5)} // take top 5
             gameEnd={isLastQuestion || gameEnd}
           />
-          <div className="user-score">
+          <div className='user-score'>
             <h3>Your Current Standing</h3>
-            <p className="rank">Rank: {ranking.findIndex(r => r.username === props.username) + 1 || 'unranked'}</p>
-            <p className="score">Score: {scores[props.username] || 0}</p>
+            <p className='rank'>Rank: {ranking.findIndex(r => r.username === props.username) + 1 || 'unranked'}</p>
+            <p className='score'>Score: {scores[props.username] || 0}</p>
           </div>
           {props.isHost && (gameEnd || isLastQuestion) ? (
-            <Button buttonText="End game" buttonLink="/" />
+            <Button buttonText='End game' buttonLink='/' />
           ) : (
             <Button
-              buttonText="Next question"
+              buttonText='Next question'
               buttonEvent={handleNextClick}
             />
           )}

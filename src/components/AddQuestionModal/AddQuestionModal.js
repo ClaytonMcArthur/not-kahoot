@@ -1,8 +1,8 @@
 import './AddQuestionModal.scss';
-import { useState } from "react";
-import { connect } from "../../api/clientApi";
+import { useState } from 'react';
+import { connect } from '../../api/clientApi';
 import { InputField } from '../InputField/InputField';
-import { Button } from "../Button/Button";
+import { Button } from '../Button/Button';
 
 /**
  * Account component for user registration and account management.

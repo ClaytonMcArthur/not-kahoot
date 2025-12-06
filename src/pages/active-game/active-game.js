@@ -1,14 +1,14 @@
-import "./active-game.scss";
-import { AllQuestions } from "../../components/AllQuestions/AllQuestions";
-import { Button } from "../../components/Button/Button";
-import { Chat } from "../../components/Chat/Chat";
+import './active-game.scss';
+import { AllQuestions } from '../../components/AllQuestions/AllQuestions';
+import { Button } from '../../components/Button/Button';
+import { Chat } from '../../components/Chat/Chat';
 import {
   sendChat,
   subscribeToGameEvents,
   exitGame,
-} from "../../api/clientApi";
-import { useEffect, useState } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
+} from '../../api/clientApi';
+import { useEffect, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { BackgroundMusic } from '../../components/BackgroundMusic/BackgroundMusic';
 
 export const ActiveGame = () => {
@@ -27,7 +27,7 @@ export const ActiveGame = () => {
       if (!msg.pin || msg.pin !== game.pin) return; // filter by game
 
       switch (msg.type) {
-        case "CHAT":
+        case 'CHAT':
           setMessages((prev) => [
             ...prev,
             {
@@ -38,7 +38,7 @@ export const ActiveGame = () => {
           ]);
           break;
 
-        case "SCORE_UPDATE":
+        case 'SCORE_UPDATE':
           if (msg.game && msg.game.scores) {
             setScores(msg.game.scores);
           }
@@ -71,15 +71,15 @@ export const ActiveGame = () => {
     try {
       await exitGame(game.pin, username);
     } catch (err) {
-      console.error("Failed to exit game:", err);
+      console.error('Failed to exit game:', err);
     }
-    navigate("/home");
+    navigate('/home');
   };
 
   return (
-    <main className="active-game">
+    <main className='active-game'>
       {!isHost && (
-        <Button buttonEvent={handleExitGame} buttonText="Exit" />
+        <Button buttonEvent={handleExitGame} buttonText='Exit' />
       )}
       <AllQuestions
         gameQuestions={game.questions || []}

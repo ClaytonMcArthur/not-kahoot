@@ -1,8 +1,8 @@
 import './login.scss';
-import { useState } from "react";
-import { connect } from "../../api/clientApi";
+import { useState } from 'react';
+import { connect } from '../../api/clientApi';
 import { InputField } from '../../components/InputField/InputField';
-import { Button } from "../../components/Button/Button";
+import { Button } from '../../components/Button/Button';
 import { useNavigate } from 'react-router-dom';
 
 export const Login = () => {
