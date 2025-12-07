@@ -8,8 +8,11 @@
     "dev": "NODE_ENV=development node client-api.js"
   },
   "dependencies": {
+    "bcrypt": "^6.0.0",
+    "better-sqlite3": "^12.5.0",
     "body-parser": "^1.20.0",
     "cors": "^2.8.5",
-    "express": "^4.19.0"
+    "express": "^4.19.0",
+    "jsonwebtoken": "^9.0.3"
   }
 }

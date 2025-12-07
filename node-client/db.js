@@ -1,7 +1,10 @@
+// node-client/db.js
+// SQLite setup for users table
+
 const path = require('path');
 const Database = require('better-sqlite3');
 
-// Render uses /var/data for persistent storage
+// Use persistent disk path in production (Render), local file in dev
 const dbPath =
     process.env.NODE_ENV === 'production'
         ? '/var/data/data.db'
@@ -9,6 +12,7 @@ const dbPath =
 
 const db = new Database(dbPath);
 
+// Create users table if it doesn't exist
 db.exec(`
   CREATE TABLE IF NOT EXISTS users (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -19,3 +23,4 @@ db.exec(`
 `);
 
 module.exports = db;
+

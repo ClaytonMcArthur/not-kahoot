@@ -7,6 +7,10 @@ const cors = require('cors');
 const bodyParser = require('body-parser');
 const path = require('path');
 const GameClient = require('./GameClient');
+const bcrypt = require('bcrypt');
+const jwt = require('jsonwebtoken');
+const db = require('./db');     // ✔ this works now because db.js is next to it
+
 
 const app = express();
 app.use(cors());
