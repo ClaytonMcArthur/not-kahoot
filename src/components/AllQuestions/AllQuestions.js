@@ -108,25 +108,31 @@ export const AllQuestions = (props) => {
     // Everyone (host + players) moves when the SSE { type: 'NEXT_QUESTION' } arrives.
   };
 
-  const questionAnswered = (answer) => {
+  const questionAnswered = (isCorrect) => {
+    // Prevent double answering or answering after time is up
     if (!isQuestionActive || isAnswered) return;
 
     setIsAnswered(true);
+
+    // (Optional: track answers locally if you want)
     setPlayerAnswers((prev) => ({
       ...prev,
-      [props.username]: { questionIndex: safeIndex, answer },
+      [props.username]: {
+        questionIndex: safeIndex,
+        answer: isCorrect,
+      },
     }));
-    // Notify the server of the player's answer
-    sendAnswer(props.gamePin, safeIndex, answer);
+
+    // Send to backend; isCorrect is a boolean
+    sendAnswer(props.gamePin, safeIndex, isCorrect);
   };
 
-  // Handle timer running out
   const handleTimeUp = () => {
     setIsQuestionActive(false);
+
+    // If player never clicked anything, count as incorrect
     if (!isAnswered) {
-      // Record no answer if time runs out
-      questionAnswered(null);
-      setIsAnswered(true);
+      questionAnswered(false); // isCorrect = false
     }
   };
 
