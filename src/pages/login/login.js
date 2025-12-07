@@ -1,6 +1,6 @@
 import './login.scss';
 import { useState } from 'react';
-import { connect } from '../../api/clientApi';
+import { connect, login, signup } from '../../api/clientApi';
 import { InputField } from '../../components/InputField/InputField';
 import { Button } from '../../components/Button/Button';
 import { useNavigate } from 'react-router-dom';
@@ -13,14 +13,24 @@ export const Login = () => {
     const navigate = useNavigate();
 
     const handleLogin = async () => {
-        // Needs to additionally verify username in the database and that password is correct
-        if (!createAccountUsername.trim() || !createAccountPassword.trim()) {
+        if (!loginUsername.trim() || !loginPassword.trim()) {
             alert('Username and password cannot be empty.');
             return;
         }
 
         try {
-            await connect(createAccountUsername.trim(), createAccountPassword.trim());
+            // 1) Check username + password against DB
+            const auth = await login(loginUsername.trim(), loginPassword.trim());
+            // auth = { token, user: { id, username } }
+
+            // 2) Store token + username for later use
+            localStorage.setItem('authToken', auth.token);
+            localStorage.setItem('username', auth.user.username);
+
+            // 3) Connect to game TCP server using username
+            await connect(auth.user.username);
+
+            // 4) Navigate into the app
             navigate('/home');
         } catch (err) {
             alert(`Login failed: ${err.message}`);
@@ -28,16 +38,23 @@ export const Login = () => {
     };
 
     const handleCreateAccount = async () => {
-        // Needs to additionalyl verify username is NOT in the database
         if (!createAccountUsername.trim() || !createAccountPassword.trim()) {
             alert('Username and password cannot be empty.');
             return;
         }
 
         try {
-            // Add new account to database as well
-            await connect(createAccountUsername.trim(), createAccountPassword.trim());
-            navigate('/home');
+            // 1) Create account in DB
+            await signup(
+                createAccountUsername.trim(),
+                createAccountPassword.trim()
+            );
+
+            alert('Account created! You can now log in.');
+
+            // Optionally pre-fill login section with new credentials
+            setLoginUsername(createAccountUsername.trim());
+            setLoginPassword(createAccountPassword.trim());
         } catch (err) {
             alert(`Account creation failed: ${err.message}`);
         }
