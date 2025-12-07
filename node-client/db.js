@@ -1,14 +1,23 @@
 // node-client/db.js
-// SQLite setup for users table
 
+const fs = require('fs');
 const path = require('path');
 const Database = require('better-sqlite3');
 
-// Use persistent disk path in production (Render), local file in dev
-const dbPath =
-    process.env.NODE_ENV === 'production'
-        ? '/var/data/data.db'
-        : path.join(__dirname, 'data.db');
+// Default: put DB next to this file
+let dbDir = __dirname;
+
+// If /var/data exists (Render persistent disk), prefer that
+if (fs.existsSync('/var/data')) {
+  dbDir = '/var/data';
+}
+
+// Make sure directory exists
+if (!fs.existsSync(dbDir)) {
+  fs.mkdirSync(dbDir, { recursive: true });
+}
+
+const dbPath = path.join(dbDir, 'data.db');
 
 const db = new Database(dbPath);
 
@@ -23,4 +32,3 @@ db.exec(`
 `);
 
 module.exports = db;
-
