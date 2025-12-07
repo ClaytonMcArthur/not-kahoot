@@ -98,10 +98,12 @@ class GameClient extends EventEmitter {
     });
   }
 
-  joinGame(pin) {
+  joinGame(pin, username) {
+    const user = username || this.username;
     this._send({
-      type: 'JOIN_GAME',
+      type: "JOIN_GAME",
       pin,
+      username: user,
     });
   }
 
@@ -136,11 +138,13 @@ class GameClient extends EventEmitter {
     });
   }
 
-  sendAnswer(pin, correct) {
+  sendAnswer(pin, correct, username) {
+    const user = username || this.username;
     this._send({
-      type: 'ANSWER',
+      type: "ANSWER",
       pin,
       correct,
+      username: user,
     });
   }
 
