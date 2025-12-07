@@ -86,6 +86,10 @@ export function submitQuestion(pin, question, answerTrue, username) {
     });
 }
 
+export function awardWinner(username, pin) {
+    return post('/awardWinner', { username, pin });
+}
+
 export async function sendChat(pin, message, username) {
     const finalUsername =
         username ||

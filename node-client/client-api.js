@@ -394,6 +394,29 @@ app.post('/api/nextQuestion', (req, res) => {
   return res.json({ ok: true });
 });
 
+// POST /api/awardWinner { pin, username }
+app.post('/api/awardWinner', (req, res) => {
+  const { pin, username } = req.body;
+
+  if (!username) {
+    return res.status(400).json({ ok: false, error: 'username required' });
+  }
+
+  try {
+    const stmt = db.prepare(`
+      UPDATE users
+      SET wins = wins + 1
+      WHERE username = ?
+    `);
+    stmt.run(username);
+
+    return res.json({ ok: true });
+  } catch (err) {
+    console.error('Failed to award win: ', err);
+    return res.status(500).json({ ok: false });
+  }
+})
+
 // POST /api/chat { pin, message, username }
 app.post('/api/chat', (req, res) => {
   console.log('HTTP /api/chat', req.body);

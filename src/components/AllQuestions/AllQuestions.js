@@ -8,7 +8,8 @@ import {
   sendAnswer,
   nextQuestion,
   subscribeToGameEvents,
-  removeGame
+  removeGame,
+  awardWinner
 } from '../../api/clientApi';
 import { useNavigate } from 'react-router-dom';
 
@@ -141,7 +142,9 @@ export const AllQuestions = (props) => {
   };
 
   const handleEndGame = async () => {
+    const winner = ranking[0]?.username;
     try {
+      await awardWinner({ username: winner, pin: props.gamePin });
       await removeGame({ gameId: props.gameId, pin: props.gamePin });
     } catch (err) {
       console.error('Failed to remove game:', err);
