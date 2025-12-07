@@ -297,19 +297,21 @@ app.post('/api/startGame', (req, res) => {
 });
 
 // POST /api/joinGame { gameId }
-app.post('/api/joinGame', (req, res) => {
-  console.log('HTTP /api/joinGame', req.body);
+app.post("/api/joinGame", (req, res) => {
+  console.log("HTTP /api/joinGame", req.body);
   if (!client) {
-    console.log('joinGame error: no GameClient');
-    return res.status(400).json({ ok: false, error: 'Not connected' });
+    console.log("joinGame error: no GameClient");
+    return res.status(400).json({ ok: false, error: "Not connected" });
   }
 
-  const { gameId } = req.body;
+  const { gameId, username } = req.body;
   if (!gameId) {
-    return res.status(400).json({ ok: false, error: 'gameId is required' });
+    return res.status(400).json({ ok: false, error: "gameId is required" });
   }
 
-  client.joinGame(gameId);
+  const user = username || currentUsername;
+  client.joinGame(gameId, user);
+
   return res.json({ ok: true });
 });
 
@@ -331,21 +333,34 @@ app.post('/api/exitGame', (req, res) => {
 });
 
 // POST /api/sendAnswer { gameId, questionId, answer }
-app.post('/api/sendAnswer', (req, res) => {
-  console.log('HTTP /api/sendAnswer', req.body);
+app.post("/api/sendAnswer", (req, res) => {
+  console.log("HTTP /api/sendAnswer", req.body);
   if (!client) {
-    console.log('sendAnswer error: no GameClient');
-    return res.status(400).json({ ok: false, error: 'Not connected' });
+    console.log("sendAnswer error: no GameClient");
+    return res.status(400).json({ ok: false, error: "Not connected" });
   }
 
-  const { gameId, questionId, answer } = req.body;
+  const { gameId, questionId, answer, username } = req.body;
   if (!gameId) {
-    return res.status(400).json({ ok: false, error: 'gameId is required' });
+    return res.status(400).json({ ok: false, error: "gameId is required" });
   }
 
-  const correct = !!answer; // you can adjust this mapping later if needed
-  console.log('sendAnswer mapping -> pin:', gameId, 'correct:', correct, 'questionId:', questionId);
-  client.sendAnswer(gameId, correct);
+  // assume `answer` is true/false; null/undefined means wrong / no answer
+  const correct = answer === true;
+  const user = username || currentUsername;
+
+  console.log(
+    "sendAnswer mapping -> pin:",
+    gameId,
+    "correct:",
+    correct,
+    "questionId:",
+    questionId,
+    "username:",
+    user
+  );
+
+  client.sendAnswer(gameId, correct, user);
   return res.json({ ok: true });
 });
 
