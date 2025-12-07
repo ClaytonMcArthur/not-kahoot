@@ -351,7 +351,6 @@ app.post('/api/exitGame', (req, res) => {
 
 // POST /api/sendAnswer { gameId, questionId, answer }
 app.post("/api/sendAnswer", (req, res) => {
-  console.log("HTTP /api/sendAnswer", req.body);
   if (!client) {
     console.log("sendAnswer error: no GameClient");
     return res.status(400).json({ ok: false, error: "Not connected" });
@@ -364,6 +363,10 @@ app.post("/api/sendAnswer", (req, res) => {
 
   // assume `answer` is true/false; null/undefined means wrong / no answer
   const correct = answer === true;
+  // Score Logic
+  if (correct) {
+    game.scores[username] = (game.scores[username] || 0) + 100;
+  }
   const user = username || currentUsername;
 
   console.log(
@@ -378,6 +381,15 @@ app.post("/api/sendAnswer", (req, res) => {
   );
 
   client.sendAnswer(gameId, correct, user);
+
+  // If everyone answered AND host is online, then advance automatically
+  const totalPlayers = game.players.length;
+  const answersForThisQuestion = Object.keys(game.answers[questionId] || {}).length;
+
+  if (answersForThisQuestion === totalPlayers) {
+    broadcastAll({ type: "NEXT_QUESTION", pin: game.pin, game });
+  }
+
   return res.json({ ok: true });
 });
 
