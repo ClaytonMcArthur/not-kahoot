@@ -16,6 +16,43 @@ const app = express();
 app.use(cors());
 app.use(bodyParser.json());
 
+// ===================== AUTH CONFIG + DB HELPERS =====================
+
+const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret-change-this';
+
+// Prepared statements
+const insertUserStmt = db.prepare(`
+  INSERT INTO users (username, password_hash)
+  VALUES (?, ?)
+`);
+
+const findUserByUsernameStmt = db.prepare(`
+  SELECT * FROM users WHERE username = ?
+`);
+
+const findUserByIdStmt = db.prepare(`
+  SELECT id, username, created_at FROM users WHERE id = ?
+`);
+
+// Middleware to require a valid JWT token
+function authRequired(req, res, next) {
+  const header = req.headers.authorization || '';
+  const [type, token] = header.split(' ');
+
+  if (type !== 'Bearer' || !token) {
+    return res.status(401).json({ error: 'Missing or invalid token' });
+  }
+
+  try {
+    const payload = jwt.verify(token, JWT_SECRET);
+    req.userId = payload.userId;
+    next();
+  } catch (err) {
+    return res.status(401).json({ error: 'Invalid token' });
+  }
+}
+
+
 // TCP server connection for GameClient
 const TCP_HOST = process.env.TCP_HOST || '127.0.0.1';
 const TCP_PORT = process.env.TCP_PORT || 4000;
