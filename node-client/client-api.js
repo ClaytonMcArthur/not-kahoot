@@ -50,12 +50,11 @@ app.get("/api/events", (req, res) => {
 
 // POST /api/connect { username }
 app.post("/api/connect", async (req, res) => {
-  const { username } = req.body;
-  console.log("HTTP /api/connect", req.body);
+  const raw = (req.body.username || "").trim();
+  // 🔹 Allow blank usernames by generating a guest name
+  const username = raw || `Guest-${Math.floor(Math.random() * 1000000)}`;
 
-  if (!username || !username.trim()) {
-    return res.status(400).json({ ok: false, error: "Username is required" });
-  }
+  console.log("HTTP /api/connect", { username });
 
   try {
     // Close previous client if any
@@ -84,10 +83,10 @@ app.post("/api/connect", async (req, res) => {
     });
 
     await client.connect();
-    client.register();
+    client.register(); // sends REGISTER with username
 
     console.log(`Registered username: ${username}`);
-    return res.json({ ok: true });
+    return res.json({ ok: true, username });
   } catch (err) {
     console.error("Failed to connect to TCP server in /api/connect:", err);
     return res.status(500).json({ ok: false, error: err.message });
@@ -131,8 +130,6 @@ app.post("/api/listGames", async (req, res) => {
 });
 
 // POST /api/createGame { ...options }
-// TCP server will generate the pin and respond with GAME_CREATED via TCP.
-// We wait for that and then return { success, game } to the frontend.
 app.post("/api/createGame", async (req, res) => {
   console.log("HTTP /api/createGame", req.body);
   if (!client) {
@@ -172,11 +169,10 @@ app.post("/api/createGame", async (req, res) => {
 // POST /api/removeGame { pin } (stub)
 app.post("/api/removeGame", (req, res) => {
   console.log("HTTP /api/removeGame", req.body);
-  // You can later add a message type to server.js if you want to implement this.
   return res.json({ ok: true });
 });
 
-// POST /api/startGame { pin or gameId, questions? }
+// POST /api/startGame { pin or gameId, username }
 app.post("/api/startGame", (req, res) => {
   const { pin, username } = req.body;
   console.log("startGame called with pin:", pin, "username:", username);
@@ -189,7 +185,6 @@ app.post("/api/startGame", (req, res) => {
     return res.status(400).json({ ok: false, error: "pin is required" });
   }
 
-  // We no longer send questions from HTTP; they live in game.questions on the server.
   client.startGame(pin, username);
 
   return res.json({ ok: true });
@@ -242,7 +237,7 @@ app.post("/api/sendAnswer", (req, res) => {
     return res.status(400).json({ ok: false, error: "gameId is required" });
   }
 
-  const correct = !!answer; // you can adjust this mapping later if needed
+  const correct = !!answer;
   console.log("sendAnswer mapping -> pin:", gameId, "correct:", correct, "questionId:", questionId);
   client.sendAnswer(gameId, correct);
   return res.json({ ok: true });
@@ -276,8 +271,10 @@ app.post("/api/chat", (req, res) => {
       .json({ ok: false, error: "pin and message are required" });
   }
 
-  console.log("chat:", { pin, message, username });
-  client.sendChat(pin, message, username || "Unknown");
+  const finalUsername = (username || currentUsername || "Unknown").trim() || "Unknown";
+
+  console.log("chat:", { pin, message, username: finalUsername });
+  client.sendChat(pin, message, finalUsername);
   return res.json({ ok: true });
 });
 
@@ -296,13 +293,14 @@ app.post("/api/submitQuestion", (req, res) => {
       .json({ ok: false, error: "pin and question are required" });
   }
 
-  // Pass username all the way through
-  client.submitQuestion(pin, question, answerTrue, username);
+  const finalUsername = (username || currentUsername || "Unknown").trim() || "Unknown";
+
+  client.submitQuestion(pin, question, answerTrue, finalUsername);
 
   return res.json({ ok: true });
 });
 
-// Optional: disconnect route if you ever want it
+// Optional: disconnect route
 app.post("/api/disconnect", (req, res) => {
   console.log("HTTP /api/disconnect");
   if (client) {

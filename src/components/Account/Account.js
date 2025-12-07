@@ -1,22 +1,30 @@
-// src/components/Account/Account.js
 import './Account.scss';
 import { useState } from "react";
 import { connect } from "../../api/clientApi";
 import { InputField } from '../InputField/InputField';
 import { Button } from "../Button/Button";
 
+/**
+ * Account component for user registration and account management.
+ * @component
+ * @param {Boolean} props.isOpen - Determines if the account panel is open
+ * @param {Function} props.onClose - Function to close the account panel
+ * @param {Function} props.onLogin - Function to handle user login
+ * @returns {JSX.Element}
+ */
 export const Account = (props) => {
     const [username, setUsername] = useState('');
-
     if (!props.isOpen) return null;
 
     const handleSubmit = async () => {
-        const raw = username.trim() || `Guest-${Math.floor(Math.random() * 100000)}`;
+        // 🔹 Use typed username or fall back to a Guest name
+        const raw = (username || "").trim();
+        const finalUsername = raw || `Guest-${Math.floor(Math.random() * 1000000)}`;
 
         try {
-            await connect(raw);
-            localStorage.setItem('username', raw);
-            props.onLogin(raw);
+            await connect(finalUsername);
+            localStorage.setItem('username', finalUsername);
+            props.onLogin(finalUsername);
             props.onClose();
         } catch (err) {
             alert(`Login failed: ${err.message}`);
@@ -33,14 +41,12 @@ export const Account = (props) => {
         <div className='account-overlay'>
             <div className='account-panel'>
                 <h2>Account</h2>
-
                 <label>Choose a username:</label>
                 <InputField
                     value={username}
                     onChange={(val) => setUsername(val)}
                     placeholder='Enter username'
                 />
-
                 <div className='account-buttons'>
                     <Button
                         buttonEvent={handleSubmit}

@@ -12,6 +12,9 @@ const tcpClients = new Set();
 // game = { pin, host, state, players: Set<string>, scores: Map<string, number>, questions: Array }
 const games = new Map();
 
+// 🔹 Guest name counter for auto-generated usernames (fallback safety)
+let guestCounter = 1;
+
 function generatePin() {
   return Math.floor(100000 + Math.random() * 900000).toString();
 }
@@ -44,8 +47,6 @@ function broadcastToGame(pin, msg) {
 }
 
 const server = net.createServer((socket) => {
-  // Commented out to reduce noise from Render probes
-  // console.log("TCP client connected");
   const client = { socket, username: null, currentPin: null, buffer: "" };
   tcpClients.add(client);
 
@@ -64,16 +65,11 @@ const server = net.createServer((socket) => {
         raw.startsWith("HEAD ") ||
         raw.startsWith("POST ")
       ) {
-        // Commented out to reduce noise
-        // console.log("Ignoring HTTP probe on TCP port:", raw);
-        // This is not a real game client; close the socket.
         socket.destroy();
         break;
       }
 
-      // Ignore obviously non-JSON lines (e.g., headers like "Host:", "User-Agent:")
       if (!raw.startsWith("{") && !raw.startsWith("[")) {
-        // console.log("Ignoring non-JSON line on TCP port:", raw);
         continue;
       }
       // -------------------------------------------------------
@@ -92,12 +88,6 @@ const server = net.createServer((socket) => {
   });
 
   socket.on("close", () => {
-    // Commented out to reduce noise
-    // console.log("TCP client disconnected");
-
-    // IMPORTANT: in this architecture, the TCP socket is just a bridge
-    // for HTTP -> game server. We DO NOT treat TCP disconnect as a player
-    // leaving the game, so we don't touch game.players / scores here.
     tcpClients.delete(client);
   });
 
@@ -111,7 +101,14 @@ function handleMessage(client, msg) {
 
   switch (type) {
     case "REGISTER": {
-      const { username } = msg;
+      let { username } = msg;
+
+      // 🔹 Fallback: if username missing/blank, assign a guest name
+      if (!username || !String(username).trim()) {
+        username = `Guest-${guestCounter++}`;
+      }
+      username = String(username).trim();
+
       client.username = username;
       console.log("REGISTER from", username);
       send(client.socket, { type: "REGISTER_OK", username });
@@ -132,7 +129,6 @@ function handleMessage(client, msg) {
         return;
       }
 
-      // Optional extra info from the HTTP layer
       const { username, theme, isPublic, maxPlayers } = msg;
       const hostUser = username || client.username;
 
@@ -143,7 +139,7 @@ function handleMessage(client, msg) {
         state: "lobby", // lobby | inProgress | ended
         players: new Set([hostUser]),
         scores: new Map([[hostUser, 0]]),
-        questions: [] // server owns the question list
+        questions: []
       };
       games.set(pin, game);
       client.currentPin = pin;
@@ -216,7 +212,6 @@ function handleMessage(client, msg) {
     }
 
     case "START_GAME": {
-      // Prefer explicit pin from message, fall back to currentPin
       const pin = msg.pin || client.currentPin;
       if (!pin) return;
 
@@ -227,8 +222,6 @@ function handleMessage(client, msg) {
         return;
       }
 
-      // IMPORTANT: figure out who is trying to start the game.
-      // We prefer the username the HTTP layer sent.
       const actor = msg.username || client.username || "Unknown";
 
       if (game.host !== actor) {
@@ -242,8 +235,6 @@ function handleMessage(client, msg) {
         return;
       }
 
-      // DO NOT overwrite questions from the message.
-      // We rely on the questions accumulated via SUBMIT_QUESTION.
       const qCount = Array.isArray(game.questions) ? game.questions.length : 0;
       console.log("START_GAME pin", pin, "host", actor, "questions:", qCount);
 
@@ -338,10 +329,8 @@ function handleMessage(client, msg) {
         question
       );
 
-      // Store on the server so START_GAME can use them all
       game.questions.push(qObj);
 
-      // Also broadcast so everyone can update their local UI
       broadcastToGame(pin, {
         type: "QUESTION_SUBMITTED",
         pin,
