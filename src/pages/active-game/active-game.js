@@ -84,6 +84,7 @@ export const ActiveGame = () => {
       <AllQuestions
         gameQuestions={game.questions || []}
         gamePin={game.pin}
+        gameId={game.id}
         username={username}
         isHost={isHost}
         scores={scores}

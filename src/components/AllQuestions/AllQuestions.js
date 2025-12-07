@@ -8,13 +8,16 @@ import {
   sendAnswer,
   nextQuestion,
   subscribeToGameEvents,
+  removeGame
 } from '../../api/clientApi';
+import { useNavigate } from 'react-router-dom';
 
 /**
  * Component that maintains game state and renders all of the questions, answers, and rankings in the game.
  * @component
  * @param {Array} props.gameQuestions - Array containing all of the questions in this game.
  * @param {String} props.gamePin - The pin of the current game
+ * @param {string} props.gameId - the ID of the current game
  * @param {String} props.username - The username of the current player
  * @param {Boolean} props.isHost - Whether the current player is the host of the game
  * @returns {JSX.Element}
@@ -27,6 +30,7 @@ export const AllQuestions = (props) => {
   const [playerAnswers, setPlayerAnswers] = useState({});
   const [scores, setScores] = useState({});
   const ranking = Object.entries(scores || {}).map(([username, score]) => ({ username, score })).sort((a, b) => b.score - a.score);
+  const navigate = useNavigate();
 
   // Subscribe to live game events for scores or host actions
   useEffect(() => {
@@ -136,6 +140,15 @@ export const AllQuestions = (props) => {
     }
   };
 
+  const handleEndGame = async () => {
+    try {
+      await removeGame({ gameId: props.gameId, pin: props.gamePin });
+    } catch (err) {
+      console.error('Failed to remove game:', err);
+    }
+    navigate('/home');
+  };
+
   return (
     <div className='all-questions-section'>
       {isQuestionActive && (
@@ -164,7 +177,7 @@ export const AllQuestions = (props) => {
             <p className='score'>Score: {scores[props.username] || 0}</p>
           </div>
           {props.isHost && (gameEnd || isLastQuestion) ? (
-            <Button buttonText='End game' buttonLink='/' />
+            <Button buttonText='End game' buttonEvent={handleEndGame} />
           ) : (
             <Button
               buttonText='Next question'
