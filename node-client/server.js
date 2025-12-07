@@ -262,34 +262,38 @@ function handleMessage(client, msg) {
       break;
     }
 
-    case 'ANSWER': {
-      if (!client.currentPin || !client.username) return;
-      const { pin, correct } = msg;
+    case "ANSWER": {
+      const { pin, correct, username } = msg;
       const game = games.get(pin);
       if (!game) return;
-      if (!game.scores.has(client.username)) {
-        game.scores.set(client.username, 0);
+
+      const user = username || client.username;
+      if (!user) return;
+
+      if (!game.scores.has(user)) {
+        game.scores.set(user, 0);
       }
       if (correct) {
-        game.scores.set(client.username, game.scores.get(client.username) + 1);
+        game.scores.set(user, game.scores.get(user) + 1);
       }
 
       console.log(
-        'ANSWER pin',
+        "ANSWER pin",
         pin,
-        'username',
-        client.username,
-        'correct',
+        "username",
+        user,
+        "correct",
         !!correct
       );
 
       broadcastToGame(pin, {
-        type: 'SCORE_UPDATE',
+        type: "SCORE_UPDATE",
         pin,
         game: serializeGame(game),
-        answeredBy: client.username,
-        correct: !!correct
+        answeredBy: user,
+        correct: !!correct,
       });
+
       break;
     }
 
