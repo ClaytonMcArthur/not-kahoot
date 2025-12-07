@@ -87,6 +87,66 @@ app.get('/api/events', (req, res) => {
   });
 });
 
+// ========================== AUTH ROUTES ============================
+
+// POST /api/signup  { username, password }
+app.post('/api/signup', async (req, res) => {
+  const { username, password } = req.body || {};
+
+  if (!username || !password) {
+    return res.status(400).json({ error: 'username and password required' });
+  }
+
+  try {
+    const passwordHash = await bcrypt.hash(password, 10);
+    insertUserStmt.run(username, passwordHash);
+    return res.status(201).json({ ok: true });
+  } catch (err) {
+    if (err.code === 'SQLITE_CONSTRAINT_UNIQUE') {
+      return res.status(409).json({ error: 'username already taken' });
+    }
+    console.error('signup error', err);
+    return res.status(500).json({ error: 'internal error' });
+  }
+});
+
+// POST /api/login  { username, password }
+app.post('/api/login', async (req, res) => {
+  const { username, password } = req.body || {};
+
+  if (!username || !password) {
+    return res.status(400).json({ error: 'username and password required' });
+  }
+
+  const user = findUserByUsernameStmt.get(username);
+  if (!user) {
+    return res.status(401).json({ error: 'invalid username or password' });
+  }
+
+  const ok = await bcrypt.compare(password, user.password_hash);
+  if (!ok) {
+    return res.status(401).json({ error: 'invalid username or password' });
+  }
+
+  const token = jwt.sign({ userId: user.id }, JWT_SECRET, {
+    expiresIn: '7d',
+  });
+
+  return res.json({
+    token,
+    user: { id: user.id, username: user.username },
+  });
+});
+
+// GET /api/me   (needs Authorization: Bearer <token>)
+app.get('/api/me', authRequired, (req, res) => {
+  const user = findUserByIdStmt.get(req.userId);
+  if (!user) {
+    return res.status(404).json({ error: 'user not found' });
+  }
+  return res.json({ user });
+});
+
 // ===== HTTP API matching your frontend clientApi.js =====
 
 // POST /api/connect { username }
