@@ -1,97 +1,108 @@
-import "./active-game.scss";
-import { AllQuestions } from "../../components/AllQuestions/AllQuestions";
-import { Button } from "../../components/Button/Button";
-import { Chat } from "../../components/Chat/Chat";
-import {
-  sendChat,
-  subscribeToGameEvents,
-  exitGame,
-} from "../../api/clientApi";
-import { useEffect, useState } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
+// src/pages/active-game.js
+import './active-game.scss';
+import { AllQuestions } from '../../components/AllQuestions/AllQuestions';
+import { Button } from '../../components/Button/Button';
+import { Chat } from '../../components/Chat/Chat';
+import { sendChat, subscribeToGameEvents, exitGame } from "../../api/clientApi";
+import { useEffect, useState, useMemo } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { BackgroundMusic } from '../../components/BackgroundMusic/BackgroundMusic';
 
 export const ActiveGame = () => {
-  const location = useLocation();
-  const { game, username } = location.state || {};
+    const location = useLocation();
+    const navigate = useNavigate();
 
-  const [messages, setMessages] = useState([]);
-  const [scores, setScores] = useState({});
-  const navigate = useNavigate();
+    const { game: navGame, username: navUsername } = location.state || {};
 
-  // Subscribe to SSE events for chat and scores
-  useEffect(() => {
-    if (!game) return;
+    const [game] = useState(navGame || null);
+    const [messages, setMessages] = useState([]);
+    const [scores, setScores] = useState({});
 
-    const unsubscribe = subscribeToGameEvents((msg) => {
-      if (!msg.pin || msg.pin !== game.pin) return; // filter by game
+    // 🔹 Compute a safe username:
+    // 1) from navigation, 2) from localStorage, 3) random guest
+    const username = useMemo(() => {
+        const fromNav = (navUsername || "").trim();
+        if (fromNav) return fromNav;
 
-      switch (msg.type) {
-        case "CHAT":
-          setMessages((prev) => [
-            ...prev,
-            {
-              id: crypto.randomUUID(),
-              player: msg.from,
-              text: msg.message,
-            },
-          ]);
-          break;
+        const stored = (localStorage.getItem('username') || "").trim();
+        if (stored) return stored;
 
-        case "SCORE_UPDATE":
-          if (msg.game && msg.game.scores) {
-            setScores(msg.game.scores);
-          }
-          break;
+        return `Guest-${Math.floor(Math.random() * 1000000)}`;
+    }, [navUsername]);
 
-        default:
-          break;
-      }
-    });
+    // Subscribe to game events (scores, chat, etc.)
+    useEffect(() => {
+        if (!game) return;
 
-    return () => unsubscribe();
-  }, [game?.pin, username]);
+        const unsubscribe = subscribeToGameEvents((event) => {
+            if (event.type === "chat") {
+                setMessages(prev => [...prev, {
+                    username: event.username,
+                    message: event.message
+                }]);
+            } else if (event.type === "scoreUpdate") {
+                setScores(event.scores || {});
+            } else if (event.type === "gameOver") {
+                setScores(event.scores || {});
+                // You can navigate to a summary screen here if you want
+            }
+        });
 
-  const handleSendMessage = (messageText) => {
-    if (!game || !username) return;
-    sendChat(game.pin, messageText, username);
-  };
+        return () => {
+            if (unsubscribe) unsubscribe();
+        };
+    }, [game]);
 
-  if (!game) {
-    return <div>Please join a game first.</div>;
-  }
-
-  if (!username) {
-    return <div>Username not found. Please re-join the game.</div>;
-  }
-
-  const isHost = username === game.host;
-
-  const handleExitGame = async () => {
-    try {
-      await exitGame(game.pin, username);
-    } catch (err) {
-      console.error("Failed to exit game:", err);
+    if (!game) {
+        return <div>Please join a game first.</div>;
     }
-    navigate("/");
-  };
 
-  return (
-    <main className="active-game">
-      {!isHost && (
-        <Button buttonEvent={handleExitGame} buttonText="Exit" />
-      )}
-      <AllQuestions
-        gameQuestions={game.questions || []}
-        gamePin={game.pin}
-        username={username}
-        isHost={isHost}
-        scores={scores}
-      />
-      <Chat
-        messages={messages}
-        user={username}
-        onSendMessage={handleSendMessage}
-      />
-    </main>
-  );
+    const isHost = username === game.host;
+
+    const handleSendMessage = async (text) => {
+        try {
+            await sendChat(game.pin, username, text);
+        } catch (err) {
+            console.error("Failed to send chat:", err);
+        }
+    };
+
+    const handleExitGame = async () => {
+        try {
+            await exitGame(game.pin, username);
+        } catch (err) {
+            console.error("Failed to exit game:", err);
+        } finally {
+            navigate('/');
+        }
+    };
+
+    return (
+        <main className='active-game'>
+            <header className='active-header'>
+                <h1>Game PIN: {game.pin}</h1>
+                <span className='active-username'>Player: {username}</span>
+                <Button
+                    buttonEvent={handleExitGame}
+                    buttonText='Leave Game'
+                />
+            </header>
+
+            <AllQuestions
+                gameQuestions={game.questions}
+                gamePin={game.pin}
+                username={username}
+                isHost={isHost}
+                scores={scores}
+            />
+
+            <Chat
+                messages={messages}
+                user={username}
+                onSendMessage={handleSendMessage}
+            />
+
+            <BackgroundMusic />
+        </main>
+    );
 };
