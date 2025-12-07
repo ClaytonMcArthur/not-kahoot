@@ -1,13 +1,14 @@
-// db.js
-// This file sets up a SQLite database using better-sqlite3
-// and ensures the `users` table exists.
-
+const path = require('path');
 const Database = require('better-sqlite3');
 
-// This will create/open data.db in the project root
-const db = new Database('data.db');
+// Render uses /var/data for persistent storage
+const dbPath =
+    process.env.NODE_ENV === 'production'
+        ? '/var/data/data.db'
+        : path.join(__dirname, 'data.db');
 
-// Create users table if it does not already exist
+const db = new Database(dbPath);
+
 db.exec(`
   CREATE TABLE IF NOT EXISTS users (
     id INTEGER PRIMARY KEY AUTOINCREMENT,

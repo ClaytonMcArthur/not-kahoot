@@ -1,5 +1,10 @@
 // server.js
 const net = require('net');
+const express = require('express');      
+const bcrypt = require('bcrypt');         // For password hashing
+const jwt = require('jsonwebtoken');      // For tokens
+const db = require('./db');               // Our database helper
+
 
 // TCP port for the game server (inside the container only)
 const TCP_PORT = process.env.TCP_PORT || 4000;
