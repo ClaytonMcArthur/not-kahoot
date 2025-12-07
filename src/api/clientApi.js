@@ -17,6 +17,17 @@ async function post(path, body) {
     return data;
 }
 
+// ========== AUTH HELPERS ==========
+
+export function signup(username, password) {
+    return post('/signup', { username, password });
+}
+
+export function login(username, password) {
+    // returns { token, user: { id, username } }
+    return post('/login', { username, password });
+}
+
 export function connect(username) {
     return post('/connect', { username });
 }
