@@ -49,7 +49,8 @@ export function startGame(pin, username) {
 }
 
 export function joinGame(gameId) {
-    return post('/joinGame', { gameId });
+  const username = localStorage.getItem("username") || "Unknown";
+  return post("/joinGame", { gameId, username });
 }
 
 export function exitGame(gameId) {
@@ -57,7 +58,8 @@ export function exitGame(gameId) {
 }
 
 export function sendAnswer(gameId, questionId, answer) {
-    return post('/sendAnswer', { gameId, questionId, answer });
+  const username = localStorage.getItem("username") || "Unknown";
+  return post("/sendAnswer", { gameId, questionId, answer, username });
 }
 
 export function nextQuestion(gameId) {
