@@ -34,7 +34,6 @@ export const Home = () => {
                 />
             </div>
             {/* This is passed static values for testing purposes */}
-            <h1 className='scoreboards-title'>Top Scorers</h1>
             <div className='scoreboards'>
                 <Scoreboard
                     players={[
@@ -46,17 +45,6 @@ export const Home = () => {
                     ]}
                     title='Top Players'
                     scoreTitle='Wins'
-                />
-                <Scoreboard
-                    players={[
-                        { rank: 1, name: 'THEhost', score: 68 },
-                        { rank: 2, name: 'PlayerFive', score: 21 },
-                        { rank: 3, name: 'PlayerThree', score: 17 },
-                        { rank: 4, name: 'PlayerSix', score: 16 },
-                        { rank: 5, name: 'PlayerTen', score: 11 }
-                    ]}
-                    title='Great Hosts'
-                    scoreTitle='Hosted'
                 />
             </div>
         </main>

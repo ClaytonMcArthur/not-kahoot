@@ -47,13 +47,10 @@
         justify-content: space-between;
         gap: 5rem;
         padding-bottom: 3rem;
+        padding-top: 3rem;
 
         @media (max-width: 600px) {
             flex-direction: column;
         }
-    }
-
-    .scoreboards-title {
-        padding-top: 3rem;
     }
 }

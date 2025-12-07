@@ -147,7 +147,7 @@ app.get('/api/me', authRequired, (req, res) => {
   return res.json({ user });
 });
 
-// ===== HTTP API matching your frontend clientApi.js =====
+// ===== HTTP API =====
 
 // POST /api/connect { username }
 app.post('/api/connect', async (req, res) => {
