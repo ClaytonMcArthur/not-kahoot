@@ -33,9 +33,9 @@ export const GameList = (props) => {
                 <span className='players-column'>Current Players</span>
                 <span className='join-column'>Join Game</span>
             </div>
-            {[...props.openGames]                 // copy so we don’t mutate props
+            {[...props.openGames]              // copy so we don’t mutate props
                 .sort((a, b) => b.players.length - a.players.length)
-                .map(game => (
+                .map((game) => (
                     <div className='game-row' key={game.pin}>
                         <span className='theme-column'>{game.theme}</span>
                         <span className='pin-column'>{game.pin}</span>

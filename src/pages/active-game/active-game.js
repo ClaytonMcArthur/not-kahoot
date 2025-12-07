@@ -13,8 +13,8 @@ import { BackgroundMusic } from '../../components/BackgroundMusic/BackgroundMusi
 
 export const ActiveGame = () => {
   const location = useLocation();
-  const { game, username } = location.state || {};
-
+  const { game, username: stateUsername } = location.state || {};
+  const username = stateUsername || localStorage.getItem('username');
   const [messages, setMessages] = useState([]);
   const [scores, setScores] = useState({});
   const navigate = useNavigate();
