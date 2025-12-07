@@ -27,6 +27,7 @@ db.exec(`
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     username TEXT UNIQUE NOT NULL,
     password_hash TEXT NOT NULL,
+    wins INTEGER DEFAULT 0, 
     created_at TEXT DEFAULT CURRENT_TIMESTAMP
   );
 `);

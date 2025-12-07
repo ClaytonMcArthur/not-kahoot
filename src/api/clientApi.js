@@ -32,6 +32,12 @@ export function connect(username) {
     return post('/connect', { username });
 }
 
+export function scoreboard() {
+    return post('/scoreboard');
+}
+
+// ========== GAME HELPERS ==========
+
 export function listGames() {
     return post('/listGames');
 }
@@ -49,8 +55,8 @@ export function startGame(pin, username) {
 }
 
 export function joinGame(gameId) {
-  const username = localStorage.getItem("username") || "Unknown";
-  return post("/joinGame", { gameId, username });
+    const username = localStorage.getItem("username") || "Unknown";
+    return post("/joinGame", { gameId, username });
 }
 
 export function exitGame(gameId) {
@@ -58,8 +64,8 @@ export function exitGame(gameId) {
 }
 
 export function sendAnswer(gameId, questionId, answer) {
-  const username = localStorage.getItem("username") || "Unknown";
-  return post("/sendAnswer", { gameId, questionId, answer, username });
+    const username = localStorage.getItem("username") || "Unknown";
+    return post("/sendAnswer", { gameId, questionId, answer, username });
 }
 
 export function nextQuestion(gameId) {

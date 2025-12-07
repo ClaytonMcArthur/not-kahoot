@@ -147,6 +147,23 @@ app.get('/api/me', authRequired, (req, res) => {
   return res.json({ user });
 });
 
+// GET /api/scoreboard - returns top 10 users ranked by wins
+app.get('/api/scoreboard', (req, res) => {
+  try {
+    const stmt = db.prepare(`
+      SELECT username, wins
+      FROM users
+      ORDER BY wins DESC, username ASC
+      LIMIT 10
+      `);
+    const leaders = stmt.all();
+    return res.json({ leaders });
+  } catch (err) {
+    console.error('scoreboard error: ', err);
+    return res.status(500).json({ error: 'internal error' });
+  }
+});
+
 // ===== HTTP API =====
 
 // POST /api/connect { username }
