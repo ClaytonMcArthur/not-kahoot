@@ -163,37 +163,37 @@ function handleMessage(client, msg) {
       break;
     }
 
-    case 'JOIN_GAME': {
-      if (!client.username) {
-        console.log('JOIN_GAME error: not registered');
-        send(client.socket, { type: 'ERROR', message: 'Not registered' });
-        return;
-      }
-      const { pin } = msg;
+    case "JOIN_GAME": {
+      const { pin, username } = msg;
       const game = games.get(pin);
       if (!game) {
-        console.log('JOIN_GAME error: game not found for pin', pin);
-        send(client.socket, { type: 'ERROR', message: 'Game not found' });
+        console.log("JOIN_GAME error: game not found for pin", pin);
+        send(client.socket, { type: "ERROR", message: "Game not found" });
         return;
       }
 
-      game.players.add(client.username);
-      if (!game.scores.has(client.username)) {
-        game.scores.set(client.username, 0);
+      const user = username || client.username;
+      if (!user) {
+        console.log("JOIN_GAME error: no username provided");
+        send(client.socket, { type: "ERROR", message: "Username is required" });
+        return;
       }
+
+      game.players.add(user);
+      if (!game.scores.has(user)) {
+        game.scores.set(user, 0);
+      }
+
       client.currentPin = pin;
 
-      console.log('JOIN_GAME success. pin', pin, 'username', client.username);
-
+      console.log("JOIN_GAME success. pin", pin, "username", user);
       const gameData = serializeGame(game);
-      send(client.socket, { type: 'JOINED_GAME', game: gameData });
-      broadcastToGame(pin, {
-        type: 'PLAYER_JOINED',
-        pin,
-        game: gameData
-      });
+      send(client.socket, { type: "JOINED_GAME", game: gameData });
+      broadcastToGame(pin, { type: "PLAYER_JOINED", pin, game: gameData });
+
       break;
     }
+
 
     case 'EXIT_GAME': {
       if (!client.currentPin || !client.username) return;
