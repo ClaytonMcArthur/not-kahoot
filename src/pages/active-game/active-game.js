@@ -1,34 +1,23 @@
-import "./active-game.scss";
-import { AllQuestions } from "../../components/AllQuestions/AllQuestions";
-import { Button } from "../../components/Button/Button";
-import { Chat } from "../../components/Chat/Chat";
+import './active-game.scss';
+import { AllQuestions } from '../../components/AllQuestions/AllQuestions';
+import { Button } from '../../components/Button/Button';
+import { Chat } from '../../components/Chat/Chat';
 import {
   sendChat,
   subscribeToGameEvents,
   exitGame,
-} from "../../api/clientApi";
-import { useEffect, useState, useMemo } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
+} from '../../api/clientApi';
+import { useEffect, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { BackgroundMusic } from '../../components/BackgroundMusic/BackgroundMusic';
 
 export const ActiveGame = () => {
   const location = useLocation();
-  const { game, username: navUsername } = location.state || {};
+  const { game, username } = location.state || {};
 
   const [messages, setMessages] = useState([]);
   const [scores, setScores] = useState({});
   const navigate = useNavigate();
-
-  // 🔹 Compute a safe username:
-  // 1) from navigation, 2) from localStorage, 3) random guest
-  const username = useMemo(() => {
-    const fromNav = (navUsername || "").trim();
-    if (fromNav) return fromNav;
-
-    const stored = (localStorage.getItem("username") || "").trim();
-    if (stored) return stored;
-
-    return `Guest-${Math.floor(Math.random() * 1000000)}`;
-  }, [navUsername]);
 
   // Subscribe to SSE events for chat and scores
   useEffect(() => {
@@ -38,7 +27,7 @@ export const ActiveGame = () => {
       if (!msg.pin || msg.pin !== game.pin) return; // filter by game
 
       switch (msg.type) {
-        case "CHAT":
+        case 'CHAT':
           setMessages((prev) => [
             ...prev,
             {
@@ -49,7 +38,7 @@ export const ActiveGame = () => {
           ]);
           break;
 
-        case "SCORE_UPDATE":
+        case 'SCORE_UPDATE':
           if (msg.game && msg.game.scores) {
             setScores(msg.game.scores);
           }
@@ -72,7 +61,9 @@ export const ActiveGame = () => {
     return <div>Please join a game first.</div>;
   }
 
-  // 🔹 We no longer early-return on missing username; we always have a fallback
+  if (!username) {
+    return <div>Username not found. Please re-join the game.</div>;
+  }
 
   const isHost = username === game.host;
 
@@ -80,15 +71,15 @@ export const ActiveGame = () => {
     try {
       await exitGame(game.pin, username);
     } catch (err) {
-      console.error("Failed to exit game:", err);
+      console.error('Failed to exit game:', err);
     }
-    navigate("/");
+    navigate('/home');
   };
 
   return (
-    <main className="active-game">
+    <main className='active-game'>
       {!isHost && (
-        <Button buttonEvent={handleExitGame} buttonText="Exit" />
+        <Button buttonEvent={handleExitGame} buttonText='Exit' />
       )}
       <AllQuestions
         gameQuestions={game.questions || []}
@@ -102,6 +93,7 @@ export const ActiveGame = () => {
         user={username}
         onSendMessage={handleSendMessage}
       />
+      <BackgroundMusic />
     </main>
   );
 };

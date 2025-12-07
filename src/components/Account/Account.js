@@ -17,20 +17,17 @@ export const Account = (props) => {
     if (!props.isOpen) return null;
 
     const handleSubmit = async () => {
-        // 🔹 Use typed username or fall back to a Guest name
-        const raw = (username || "").trim();
-        const finalUsername = raw || `Guest-${Math.floor(Math.random() * 1000000)}`;
+        if (!username.trim()) return;
 
         try {
-            await connect(finalUsername);
-            localStorage.setItem('username', finalUsername);
-            props.onLogin(finalUsername);
+            await connect(username.trim());
+            localStorage.setItem('username', username.trim());
+            props.onLogin(username.trim());
             props.onClose();
         } catch (err) {
             alert(`Login failed: ${err.message}`);
         }
     };
-
     const handleLogout = () => {
         localStorage.removeItem('username');
         props.onLogin(null);
