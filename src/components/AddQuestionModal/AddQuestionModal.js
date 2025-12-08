@@ -6,11 +6,11 @@ import { Button } from '../Button/Button';
 
 /**
  * Modal for submitting a True/False question.
- *
- * props:
- * - isOpen: boolean
- * - onClose: function
- * - onSubmitQuestion: function({ question: string, answerTrue: boolean })
+ * @component
+ * @param {Boolean} props.isOpen - Determines if the account panel is open
+ * @param {Function} props.onClose - Function to close the account panel
+ * @param {Function} props.onSubmitQuestion - Function to handle user submitting their question
+ * @returns {JSX.Element}
  */
 export const AddQuestionModal = (props) => {
   const [question, setQuestion] = useState('');

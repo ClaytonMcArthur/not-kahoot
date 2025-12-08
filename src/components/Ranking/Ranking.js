@@ -4,7 +4,7 @@ import './Ranking.scss';
 /**
  * Component that displays who is currently in the top five during the game,
  * and displays the Leaderboard at the end.
- *
+ * @component
  * @param {Object} props
  * @param {Array<{username: string, score: number}>} props.topFive
  * @param {boolean} props.gameEnd
