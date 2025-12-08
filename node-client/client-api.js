@@ -294,20 +294,22 @@ app.post('/api/removeGame', (req, res) => {
   return res.json({ ok: true });
 });
 
-// POST /api/startGame { pin, username }
-app.post("/api/startGame", (req, res) => {
+// POST /api/startGame { pin or gameId, questions? }
+app.post('/api/startGame', (req, res) => {
   const { pin, username } = req.body;
-  console.log("startGame called with pin:", pin, "username:", username);
+  console.log('startGame called with pin:', pin, 'username:', username);
 
   if (!client) {
-    return res.status(400).json({ ok: false, error: "Not connected" });
+    return res.status(400).json({ ok: false, error: 'Not connected' });
   }
 
   if (!pin) {
-    return res.status(400).json({ ok: false, error: "pin is required" });
+    return res.status(400).json({ ok: false, error: 'pin is required' });
   }
 
+  // We no longer send questions from HTTP; they live in game.questions on the server.
   client.startGame(pin, username);
+
   return res.json({ ok: true });
 });
 
@@ -347,27 +349,47 @@ app.post('/api/exitGame', (req, res) => {
   return res.json({ ok: true });
 });
 
-// POST /api/sendAnswer { gameId, questionId, correct, username }
+// POST /api/sendAnswer { gameId, questionId, answer }
 app.post("/api/sendAnswer", (req, res) => {
-  console.log("HTTP /api/sendAnswer", req.body);
   if (!client) {
     console.log("sendAnswer error: no GameClient");
     return res.status(400).json({ ok: false, error: "Not connected" });
   }
 
-  const { gameId, questionId, correct, username } = req.body;
+  const { gameId, questionId, answer, username } = req.body;
   if (!gameId) {
     return res.status(400).json({ ok: false, error: "gameId is required" });
   }
 
-  console.log("sendAnswer mapping ->", {
-    pin: gameId,
-    correct,
-    questionId,
-    username
-  });
+  // assume `answer` is true/false; null/undefined means wrong / no answer
+  const correct = answer === true;
+  // Score Logic
+  if (correct) {
+    game.scores[username] = (game.scores[username] || 0) + 100;
+  }
+  const user = username || currentUsername;
 
-  client.sendAnswer(gameId, correct, username);
+  console.log(
+    "sendAnswer mapping -> pin:",
+    gameId,
+    "correct:",
+    correct,
+    "questionId:",
+    questionId,
+    "username:",
+    user
+  );
+
+  client.sendAnswer(gameId, correct, user);
+
+  // If everyone answered AND host is online, then advance automatically
+  const totalPlayers = game.players.length;
+  const answersForThisQuestion = Object.keys(game.answers[questionId] || {}).length;
+
+  if (answersForThisQuestion === totalPlayers) {
+    broadcastAll({ type: "NEXT_QUESTION", pin: game.pin, game });
+  }
+
   return res.json({ ok: true });
 });
 
