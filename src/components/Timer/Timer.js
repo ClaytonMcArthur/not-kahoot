@@ -1,3 +1,4 @@
+// src/components/Timer/Timer.js
 import './Timer.scss';
 import { useEffect, useRef, useState } from 'react';
 
@@ -35,7 +36,7 @@ export const Timer = (props) => {
     }, 1000);
 
     return () => clearInterval(id);
-  }, [seconds, props]);
+  }, [seconds, props.onTimeUp]);
 
   return (
     <div className='timer-section'>
