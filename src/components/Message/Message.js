@@ -2,6 +2,7 @@ import './Message.scss';
 
 /**
  * Message component that displays a single message to the screen.
+ * @component
  * @param {String} props.player - the player who typed and sent out the message
  * @param {String} props.text - the message to be displayed on screen
  * @returns {JSX.Element}

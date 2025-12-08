@@ -2,8 +2,7 @@ import './Scoreboard.scss';
 
 /**
  * Component that tracks a constant scoreboard across all Not Kahoot games.
- *
- * @param {Object} props
+ * @comonent
  * @param {Array<{rank: number, name: string, score: number}>} props.players
  * @param {string} props.title
  * @param {string} props.scoreTitle

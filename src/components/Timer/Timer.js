@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 
 /**
  * Component that tracks and displays the timer for every game question.
- *
+ * @component
  * @param {Object} props
  * @param {number|string} props.countdown - countdown duration (seconds)
  * @param {Function} props.onTimeUp - called once when time reaches 0

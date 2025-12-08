@@ -7,9 +7,16 @@ import { Timer } from '../Timer/Timer';
 import { sendAnswer, nextQuestion, endGame } from '../../api/clientApi';
 
 /**
- * Server-driven question display.
- * - Uses props.currentQuestionIndex as the source of truth
- * - Resets local UI when host advances (advanceTick) or index changes
+ * Component that maintains game state and renders all of the questions, answers, and rankings in the game.
+ * @component
+ * @param {Array} props.gameQuestions - Array containing all of the questions in this game.
+ * @param {String} props.gamePin - The pin of the current game
+ * @param {String} props.username - The username of the current player
+ * @param {Boolean} props.isHost - Whether the current player is the host of the game
+ * @param {Array} props.scores - Array of current game scores
+ * @param {Integer} props.currentQuestionIndex - Index of the current question being asked
+ * @param {Function} props.advanceTick - Passes timer functionality to the Timer component
+ * @returns {JSX.Element}
  */
 export const AllQuestions = (props) => {
   const questions = props.gameQuestions || [];

@@ -6,6 +6,7 @@ import { Button } from '../Button/Button';
 
 /**
  * Chat component that displays all the current chat messages to a chat popup.
+ * @component 
  * @param {Array} props.messages - array of all the messages to be displayed in the chat
  * @param {Function} props.onSendMessage - function to handle sending a new message
  * @param {String} props.user - username of the current user that is used to track which messages are theirs

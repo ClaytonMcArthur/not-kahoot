@@ -3,6 +3,13 @@ import { Button } from '../Button/Button';
 import { useNavigate } from 'react-router-dom';
 import { joinGame } from '../../api/clientApi';
 
+/**
+ * Component that lists out all joinable games on the join screen.
+ * @component
+ * @param {Array} props.openGames - array listing all the active games that are open to new people joining
+ * @param {String} props.username - the username of the player joining a game
+ * @returns {JSX.Element}
+ */
 export const GameList = (props) => {
   const navigate = useNavigate();
 

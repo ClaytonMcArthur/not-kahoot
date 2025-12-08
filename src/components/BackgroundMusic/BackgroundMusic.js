@@ -4,6 +4,7 @@ import NotKahootLoop from '../../assets/not_kahoot_loop.mp3';
 
 /**
  * Component that manages the background music during games
+ * @component
  * @returns {JSX Element}
  */
 export const BackgroundMusic = () => {

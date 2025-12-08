@@ -2,7 +2,7 @@ import './Leaderboard.scss';
 
 /**
  * Component that displays who is on the podium at the end of the game.
- *
+ * @component
  * @param {Object} props
  * @param {Array<{username: string, score: number}>} props.topFive
  * @returns {JSX.Element}
