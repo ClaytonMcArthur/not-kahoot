@@ -39,4 +39,11 @@
             position: inherit;
         }
     }
+
+    @media (max-width: 600px) {
+        .chat {
+            height: 70vh;
+            width: 18rem;
+        }
+    }
 }

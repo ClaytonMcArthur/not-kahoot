@@ -20,6 +20,7 @@
         flex-direction: column;
         gap: 2rem;
         text-align: center;
+        box-sizing: border-box;
 
         .account-question {
             font-size: 2.5rem;
@@ -30,7 +31,7 @@
             width: 100%;
             flex-direction: row;
             justify-content: space-around;
-            gap: 2rem;
+            gap: 3rem;
 
             .creat-account-section,
             .login-section {

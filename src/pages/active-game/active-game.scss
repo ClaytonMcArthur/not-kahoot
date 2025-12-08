@@ -7,4 +7,11 @@
         align-self: flex-end;
         right: 3rem;
     }
+
+    @media (max-width: 600px) {
+        .chat {
+            height: 70vh;
+            width: 18rem;
+        }
+    }
 }
