@@ -7,56 +7,52 @@ import { scoreboard } from '../../api/clientApi';
 import { useEffect, useState } from 'react';
 
 export const Home = () => {
-    const navigate = useNavigate();
-    const [leaders, setLeaders] = useState([]);
+  const navigate = useNavigate();
+  const [leaders, setLeaders] = useState([]);
 
-    useEffect(() => {
-        scoreboard().then(res => {
-            setLeaders(res.leaders || []);
-        }).catch(err => {
-            console.error('falied to load scoreboard', err);
-        });
-    });
+  useEffect(() => {
+    scoreboard()
+      .then((res) => {
+        setLeaders(res.leaders || []);
+      })
+      .catch((err) => {
+        console.error('failed to load scoreboard', err);
+      });
+  }, []);
 
-    const handleLogout = () => {
-        // Add logic to handle log out
-        navigate('/');
-    };
+  const handleLogout = () => {
+    navigate('/');
+  };
 
-    return (
-        <main className='home'>
-            <div className='title-section'>
-                <img src={notKahootLogo} alt='Not Kahoot Logo' className='logo' />
-                <h1 className='title'>Welcome to... <span className='make-purple'>Not Kahoot!</span></h1>
-            </div>
-            <div className='registration'>
-                <Button
-                    buttonText='Logout'
-                    buttonEvent={() => handleLogout()}
-                />
-            </div>
-            <div className='home-buttons'>
-                <Button
-                    buttonLink='/join-game'
-                    buttonText='Join a game'
-                />
-                <Button
-                    buttonLink='/host-game'
-                    buttonText='Host a game'
-                />
-            </div>
-            {/* This is passed static values for testing purposes */}
-            <div className='scoreboards'>
-                <Scoreboard
-                    players={leaders.map((u, index) => ({
-                        rank: index + 1,
-                        name: u.username,
-                        score: u.wins
-                    }))}
-                    title='Top Players'
-                    scoreTitle='Wins'
-                />
-            </div>
-        </main>
-    );
+  return (
+    <main className='home'>
+      <div className='title-section'>
+        <img src={notKahootLogo} alt='Not Kahoot Logo' className='logo' />
+        <h1 className='title'>
+          Welcome to... <span className='make-purple'>Not Kahoot!</span>
+        </h1>
+      </div>
+
+      <div className='registration'>
+        <Button buttonText='Logout' buttonEvent={() => handleLogout()} />
+      </div>
+
+      <div className='home-buttons'>
+        <Button buttonLink='/join-game' buttonText='Join a game' />
+        <Button buttonLink='/host-game' buttonText='Host a game' />
+      </div>
+
+      <div className='scoreboards'>
+        <Scoreboard
+          players={leaders.map((u, index) => ({
+            rank: index + 1,
+            name: u.username,
+            score: u.wins,
+          }))}
+          title='Top Players'
+          scoreTitle='Wins'
+        />
+      </div>
+    </main>
+  );
 };
