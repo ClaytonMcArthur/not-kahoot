@@ -54,7 +54,11 @@ export function login(username, password) {
   return post('/login', { username, password }); // returns { token, user }
 }
 
-export function connect(username) {
+// IMPORTANT: store username so SSE + headers are consistent
+export async function connect(username) {
+  if (username && String(username).trim()) {
+    localStorage.setItem('username', String(username).trim());
+  }
   return post('/connect', { username });
 }
 
@@ -124,27 +128,61 @@ export async function sendChat(pin, message, username) {
 
 // ========== SSE ==========
 let eventSource = null;
+let eventSourceUser = null;
 const subscribers = new Set();
 
-export function subscribeToGameEvents(callback) {
+function ensureEventSource(username) {
+  const root = BASE_URL.replace('/api', '');
+
+  if (eventSource && eventSourceUser === username) return;
+
+  // username changed or first time
+  if (eventSource) {
+    try { eventSource.close(); } catch (_) {}
+    eventSource = null;
+    eventSourceUser = null;
+  }
+
+  eventSourceUser = username;
+  eventSource = new EventSource(
+    `${root}/api/events?username=${encodeURIComponent(username)}`
+  );
+
+  eventSource.onmessage = (e) => {
+    let msg;
+    try {
+      msg = JSON.parse(e.data);
+    } catch (err) {
+      console.error('SSE parse error:', err, e.data);
+      return;
+    }
+    subscribers.forEach((cb) => cb(msg));
+  };
+
+  eventSource.onerror = (err) => {
+    console.error('SSE error:', err);
+    // If it fully closes, allow recreating later
+    if (eventSource && eventSource.readyState === 2) {
+      try { eventSource.close(); } catch (_) {}
+      eventSource = null;
+      eventSourceUser = null;
+    }
+  };
+}
+
+export function subscribeToGameEvents(callback, opts = {}) {
   subscribers.add(callback);
 
-  if (!eventSource) {
-    const username = localStorage.getItem('username') || '';
-    const root = BASE_URL.replace('/api', '');
-    eventSource = new EventSource(
-      `${root}/api/events?username=${encodeURIComponent(username)}`
-    );
+  const username =
+    (opts.username && String(opts.username).trim()) ||
+    (localStorage.getItem('username') || '').trim();
 
-    eventSource.onmessage = (e) => {
-      const msg = JSON.parse(e.data);
-      subscribers.forEach((cb) => cb(msg));
-    };
-
-    eventSource.onerror = (err) => {
-      console.error('SSE error:', err);
-    };
+  if (!username) {
+    console.warn('subscribeToGameEvents: no username available for SSE');
+    return () => subscribers.delete(callback);
   }
+
+  ensureEventSource(username);
 
   return () => subscribers.delete(callback);
 }
