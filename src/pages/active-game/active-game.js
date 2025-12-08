@@ -19,13 +19,10 @@ export const ActiveGame = () => {
   const username = stateUsername || localStorage.getItem('username') || 'Unknown';
 
   const [messages, setMessages] = useState([]);
-  const [scores, setScores] = useState({});
+  const [scores, setScores] = useState(initialGame?.scores || {});
   const [gameState, setGameState] = useState(initialGame || null);
 
-  // increments when host advances; pass to AllQuestions so it can react
   const [advanceTick, setAdvanceTick] = useState(0);
-
-  // end screen
   const [ended, setEnded] = useState(false);
 
   const navigate = useNavigate();
@@ -33,9 +30,7 @@ export const ActiveGame = () => {
 
   const game = gameState;
 
-  const isHost = useMemo(() => {
-    return !!game && username === game.host;
-  }, [game, username]);
+  const isHost = useMemo(() => !!game && username === game.host, [game, username]);
 
   useEffect(() => {
     if (!game) return;
@@ -69,9 +64,11 @@ export const ActiveGame = () => {
           // Host awards winner once
           if (!awardedRef.current && isHost && msg.game?.scores) {
             awardedRef.current = true;
+
             const entries = Object.entries(msg.game.scores || {});
             entries.sort((a, b) => (b[1] || 0) - (a[1] || 0));
             const winner = entries[0]?.[0];
+
             if (winner) {
               awardWinner(winner, msg.pin).catch((e) =>
                 console.error('awardWinner failed:', e)
@@ -121,7 +118,14 @@ export const ActiveGame = () => {
         <h1>Game Over</h1>
         <div style={{ maxWidth: 480, margin: '0 auto' }}>
           {sorted.map(([name, score]) => (
-            <div key={name} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0' }}>
+            <div
+              key={name}
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                padding: '8px 0',
+              }}
+            >
               <strong>{name}</strong>
               <span>{score}</span>
             </div>
@@ -143,11 +147,9 @@ export const ActiveGame = () => {
       <AllQuestions
         gameQuestions={game.questions || []}
         gamePin={game.pin}
-        gameId={game.id}
         username={username}
         isHost={isHost}
         scores={scores}
-        // new props (AllQuestions can ignore if not implemented yet)
         currentQuestionIndex={game.currentQuestionIndex ?? 0}
         advanceTick={advanceTick}
       />
