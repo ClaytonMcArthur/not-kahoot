@@ -8,13 +8,21 @@ const tcpClients = new Set();
 
 // game = {
 //   pin, host, state,
+//   theme, isPublic, maxPlayers,
 //   players: Set<string>,
 //   scores: Map<string, number>,
 //   questions: Array,
 //   currentQuestionIndex: number,
 //   answeredByIndex: Map<number, Set<string>>
+//   createdAt, endedAt
 // }
 const games = new Map();
+
+const ENDED_TTL_MS = 2 * 60 * 1000; // keep ended games for a short time (clients can finish UI)
+
+function now() {
+  return Date.now();
+}
 
 function generatePin() {
   return Math.floor(100000 + Math.random() * 900000).toString();
@@ -25,6 +33,9 @@ function serializeGame(game) {
     pin: game.pin,
     host: game.host,
     state: game.state,
+    theme: game.theme ?? '',
+    isPublic: !!game.isPublic,
+    maxPlayers: game.maxPlayers ?? 20,
     players: Array.from(game.players),
     scores: Object.fromEntries(game.scores.entries()),
     questions: game.questions || [],
@@ -59,6 +70,24 @@ function requireGame(pin, socket) {
 
 function isHost(game, actor) {
   return game.host === actor;
+}
+
+function cleanupEndedGames() {
+  const t = now();
+  for (const [pin, game] of games.entries()) {
+    if (game.state === 'ended') {
+      const endedAt = game.endedAt ?? 0;
+      if (endedAt && t - endedAt > ENDED_TTL_MS) {
+        games.delete(pin);
+      }
+    }
+  }
+}
+
+function endGame(pin, game) {
+  game.state = 'ended';
+  game.endedAt = now();
+  broadcastToGame(pin, { type: 'GAME_ENDED', pin, game: serializeGame(game) });
 }
 
 const server = net.createServer((socket) => {
@@ -114,8 +143,13 @@ function handleMessage(client, msg) {
     }
 
     case 'LIST_GAMES': {
-      console.log('LIST_GAMES request');
-      const list = Array.from(games.values()).map(serializeGame);
+      cleanupEndedGames();
+
+      // Only show joinable games (lobby, public)
+      const list = Array.from(games.values())
+        .filter((g) => g.state === 'lobby')
+        .map(serializeGame);
+
       send(client.socket, { type: 'GAMES_LIST', games: list });
       break;
     }
@@ -126,26 +160,36 @@ function handleMessage(client, msg) {
         return;
       }
 
-      const { username } = msg;
-      const hostUser = username || client.username;
+      const {
+        username,
+        theme = '',
+        isPublic = true,
+        maxPlayers = 20,
+      } = msg;
 
+      const hostUser = username || client.username;
       const pin = generatePin();
+
       const game = {
         pin,
         host: hostUser,
         state: 'lobby',
+        theme,
+        isPublic: !!isPublic,
+        maxPlayers: Number(maxPlayers) || 20,
         players: new Set([hostUser]),
         scores: new Map([[hostUser, 0]]),
         questions: [],
         currentQuestionIndex: 0,
         answeredByIndex: new Map(),
+        createdAt: now(),
+        endedAt: null,
       };
 
       games.set(pin, game);
       client.currentPin = pin;
 
       console.log('CREATE_GAME created pin', pin, 'host', hostUser);
-
       send(client.socket, { type: 'GAME_CREATED', game: serializeGame(game) });
       break;
     }
@@ -155,9 +199,19 @@ function handleMessage(client, msg) {
       const game = requireGame(pin, client.socket);
       if (!game) return;
 
+      if (game.state !== 'lobby') {
+        send(client.socket, { type: 'ERROR', message: 'Game is not joinable (already started/ended)' });
+        return;
+      }
+
       const user = username || client.username;
       if (!user) {
         send(client.socket, { type: 'ERROR', message: 'Username is required' });
+        return;
+      }
+
+      if (game.players.size >= (game.maxPlayers ?? 20)) {
+        send(client.socket, { type: 'ERROR', message: 'Game is full' });
         return;
       }
 
@@ -166,9 +220,7 @@ function handleMessage(client, msg) {
 
       client.currentPin = pin;
 
-      console.log('JOIN_GAME success. pin', pin, 'username', user);
       const gameData = serializeGame(game);
-
       send(client.socket, { type: 'JOINED_GAME', game: gameData });
       broadcastToGame(pin, { type: 'PLAYER_JOINED', pin, game: gameData });
       break;
@@ -182,16 +234,21 @@ function handleMessage(client, msg) {
       const game = games.get(pin);
       if (!game) return;
 
-      console.log('EXIT_GAME pin', pin, 'username', user);
-
       game.players.delete(user);
       game.scores.delete(user);
       client.currentPin = null;
 
+      // If host left, reassign host if possible
+      if (game.host === user && game.players.size > 0) {
+        game.host = Array.from(game.players)[0];
+      }
+
       const gameData = serializeGame(game);
       broadcastToGame(pin, { type: 'PLAYER_LEFT', pin, game: gameData });
 
-      if (game.players.size === 0) games.delete(pin);
+      if (game.players.size === 0) {
+        games.delete(pin);
+      }
       break;
     }
 
@@ -200,11 +257,19 @@ function handleMessage(client, msg) {
       const game = requireGame(pin, client.socket);
       if (!game) return;
 
+      if (game.state !== 'lobby') {
+        send(client.socket, { type: 'ERROR', message: 'Cannot submit questions after game starts' });
+        return;
+      }
+
       const from = username || client.username || 'Unknown';
       if (!Array.isArray(game.questions)) game.questions = [];
 
-      const qObj = { username: from, question, answerTrue: !!answerTrue };
-      game.questions.push(qObj);
+      game.questions.push({
+        username: from,
+        question,
+        answerTrue: !!answerTrue,
+      });
 
       broadcastToGame(pin, {
         type: 'QUESTION_SUBMITTED',
@@ -229,9 +294,16 @@ function handleMessage(client, msg) {
         return;
       }
 
+      const total = Array.isArray(game.questions) ? game.questions.length : 0;
+      if (total <= 0) {
+        send(client.socket, { type: 'ERROR', message: 'Add at least 1 question before starting' });
+        return;
+      }
+
       game.state = 'inProgress';
       game.currentQuestionIndex = 0;
       game.answeredByIndex = new Map();
+      game.endedAt = null;
 
       broadcastToGame(pin, { type: 'GAME_STARTED', pin, game: serializeGame(game) });
       break;
@@ -242,11 +314,12 @@ function handleMessage(client, msg) {
       const game = requireGame(pin, client.socket);
       if (!game) return;
 
+      if (game.state !== 'inProgress') return;
+
       const user = username || client.username;
       if (!user) return;
 
       if (!game.players.has(user)) {
-        // joining late / mismatch: ensure presence
         game.players.add(user);
         if (!game.scores.has(user)) game.scores.set(user, 0);
       }
@@ -275,7 +348,6 @@ function handleMessage(client, msg) {
 
       if (!game.scores.has(user)) game.scores.set(user, 0);
       if (isCorrect) {
-        // choose your scoring: 100 points per correct
         game.scores.set(user, game.scores.get(user) + 100);
       }
 
@@ -295,20 +367,23 @@ function handleMessage(client, msg) {
       const game = requireGame(pin, client.socket);
       if (!game) return;
 
+      if (game.state !== 'inProgress') {
+        send(client.socket, { type: 'ERROR', message: 'Game is not in progress' });
+        return;
+      }
+
       const actor = username || client.username || 'Unknown';
       if (!isHost(game, actor)) {
         send(client.socket, { type: 'ERROR', message: 'Only host can advance questions' });
         return;
       }
 
+      const total = Array.isArray(game.questions) ? game.questions.length : 0;
       const nextIdx = (game.currentQuestionIndex ?? 0) + 1;
       game.currentQuestionIndex = nextIdx;
 
-      // If we ran out of questions, end automatically
-      const total = Array.isArray(game.questions) ? game.questions.length : 0;
       if (total > 0 && nextIdx >= total) {
-        game.state = 'ended';
-        broadcastToGame(pin, { type: 'GAME_ENDED', pin, game: serializeGame(game) });
+        endGame(pin, game);
         return;
       }
 
@@ -327,8 +402,7 @@ function handleMessage(client, msg) {
         return;
       }
 
-      game.state = 'ended';
-      broadcastToGame(pin, { type: 'GAME_ENDED', pin, game: serializeGame(game) });
+      endGame(pin, game);
       break;
     }
 
