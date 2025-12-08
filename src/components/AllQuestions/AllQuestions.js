@@ -1,5 +1,5 @@
 import './AllQuestions.scss';
-import { useState, useEffect } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Question } from '../Question/Question';
 import { Ranking } from '../Ranking/Ranking';
 import { Button } from '../Button/Button';
@@ -8,70 +8,70 @@ import {
   sendAnswer,
   nextQuestion,
   subscribeToGameEvents,
-  removeGame,
-  awardWinner
+  awardWinner,
+  endGame
 } from '../../api/clientApi';
 import { useNavigate } from 'react-router-dom';
 
 /**
  * Component that maintains game state and renders all of the questions, answers, and rankings in the game.
- * @component
- * @param {Array} props.gameQuestions - Array containing all of the questions in this game.
- * @param {String} props.gamePin - The pin of the current game
- * @param {string} props.gameId - the ID of the current game
- * @param {String} props.username - The username of the current player
- * @param {Boolean} props.isHost - Whether the current player is the host of the game
- * @returns {JSX.Element}
  */
 export const AllQuestions = (props) => {
-  const [isAnswered, setIsAnswered] = useState(false);
-  const [isQuestionActive, setIsQuestionActive] = useState(true);
-  const [questionIndex, setQuestionIndex] = useState(0);
-  const [gameEnd, setGameEnd] = useState(false);
-  const [playerAnswers, setPlayerAnswers] = useState({});
-  const [scores, setScores] = useState({});
-  const ranking = Object.entries(scores || {}).map(([username, score]) => ({ username, score })).sort((a, b) => b.score - a.score);
   const navigate = useNavigate();
 
-  // Subscribe to live game events for scores or host actions
+  const [isAnswered, setIsAnswered] = useState(false);
+  const [isQuestionActive, setIsQuestionActive] = useState(true);
+  const [gameEnd, setGameEnd] = useState(false);
+
+  // We keep a local index as a fallback, but prefer server index if provided.
+  const [localQuestionIndex, setLocalQuestionIndex] = useState(0);
+
+  const [scores, setScores] = useState({});
+  const awardedRef = useRef(false);
+
+  const questions = props.gameQuestions || [];
+  const serverIndex =
+    typeof props.currentQuestionIndex === 'number' ? props.currentQuestionIndex : null;
+
+  const effectiveIndex = useMemo(() => {
+    const idx = serverIndex !== null ? serverIndex : localQuestionIndex;
+    if (!questions.length) return 0;
+    return Math.min(Math.max(idx, 0), questions.length - 1);
+  }, [serverIndex, localQuestionIndex, questions.length]);
+
+  const currentQuestion = questions[effectiveIndex];
+  const isLastQuestion = questions.length > 0 && effectiveIndex === questions.length - 1;
+
+  const ranking = useMemo(() => {
+    return Object.entries(scores || {})
+      .map(([username, score]) => ({ username, score }))
+      .sort((a, b) => (b.score || 0) - (a.score || 0));
+  }, [scores]);
+
+  // Subscribe to live game events
   useEffect(() => {
     const unsubscribe = subscribeToGameEvents((msg) => {
       if (!msg.pin || msg.pin !== props.gamePin) return;
 
       switch (msg.type) {
         case 'SCORE_UPDATE': {
-          // Server sends { type: 'SCORE_UPDATE', game: { scores: {...} }, ... }
-          if (msg.game && msg.game.scores) {
-            setScores(msg.game.scores);
-          }
+          if (msg.game?.scores) setScores(msg.game.scores);
           break;
         }
 
         case 'NEXT_QUESTION': {
-          // Advance to the next question for EVERYONE in this game
+          // Everyone resets state and advances.
           setIsQuestionActive(true);
           setIsAnswered(false);
           setGameEnd(false);
 
-          setQuestionIndex((prevIndex) => {
-            const nextIndex = prevIndex + 1;
-            // If we run out of questions, mark game end and don't go out of bounds
-            if (
-              !props.gameQuestions ||
-              props.gameQuestions.length === 0 ||
-              nextIndex >= props.gameQuestions.length
-            ) {
-              setGameEnd(true);
-              setIsQuestionActive(false);
-              return prevIndex; // stay on last valid question
-            }
-            return nextIndex;
-          });
+          // If serverIndex isn't passed down, at least keep local in sync.
+          setLocalQuestionIndex((prev) => prev + 1);
           break;
         }
 
         case 'GAME_ENDED': {
-          // In case you ever add this event type on the server
+          if (msg.game?.scores) setScores(msg.game.scores);
           setGameEnd(true);
           setIsQuestionActive(false);
           break;
@@ -83,53 +83,48 @@ export const AllQuestions = (props) => {
     });
 
     return () => unsubscribe();
-    // include gameQuestions.length so boundary logic stays correct if questions change
-  }, [props.gamePin, props.gameQuestions?.length]);
+  }, [props.gamePin]);
 
-  // ---- Early guard AFTER hooks (to satisfy React hook rules) ----
-  if (!props.gameQuestions || props.gameQuestions.length === 0) {
-    return (
-      <div className='all-questions-section'>Loading questions...</div>
-    );
+  // If parent passes in currentQuestionIndex and it changes, reset per-question UI state.
+  useEffect(() => {
+    if (serverIndex === null) return;
+    setIsQuestionActive(true);
+    setIsAnswered(false);
+    setGameEnd(false);
+  }, [serverIndex]);
+
+  // Also allow parent to "tick" advances even if msg.game isn't passed
+  useEffect(() => {
+    if (props.advanceTick == null) return;
+    // When advanceTick changes, treat it like a new question
+    setIsQuestionActive(true);
+    setIsAnswered(false);
+    setGameEnd(false);
+  }, [props.advanceTick]);
+
+  // Early guard after hooks
+  if (!questions.length) {
+    return <div className='all-questions-section'>Loading questions...</div>;
   }
 
-  // Clamp index to valid range just in case
-  const safeIndex = Math.min(
-    questionIndex,
-    Math.max(props.gameQuestions.length - 1, 0)
-  );
-  const currentQuestion = props.gameQuestions[safeIndex];
-  const isLastQuestion = safeIndex === props.gameQuestions.length - 1;
-
   const handleNextClick = async () => {
-    // Only the host should actually call the backend.
-    if (props.isHost) {
-      try {
-        await nextQuestion(props.gamePin);
-      } catch (error) {
-        console.error('Error advancing to next question:', error);
-      }
+    if (!props.isHost) return;
+    try {
+      await nextQuestion(props.gamePin);
+    } catch (error) {
+      console.error('Error advancing to next question:', error);
     }
-    // Everyone (host + players) moves when the SSE { type: 'NEXT_QUESTION' } arrives.
   };
 
   const questionAnswered = (isCorrect) => {
-    // Prevent double answering or answering after time is up
     if (!isQuestionActive || isAnswered) return;
 
     setIsAnswered(true);
 
-    // (Optional: track answers locally if you want)
-    setPlayerAnswers((prev) => ({
-      ...prev,
-      [props.username]: {
-        questionIndex: safeIndex,
-        answer: isCorrect,
-      },
-    }));
-
-    // Send to backend; isCorrect is a boolean
-    sendAnswer(props.gamePin, safeIndex, isCorrect);
+    // Send to backend; boolean or string will be handled server-side
+    sendAnswer(props.gamePin, effectiveIndex, isCorrect).catch((e) =>
+      console.error('sendAnswer failed:', e)
+    );
   };
 
   const handleTimeUp = () => {
@@ -137,26 +132,34 @@ export const AllQuestions = (props) => {
 
     // If player never clicked anything, count as incorrect
     if (!isAnswered) {
-      questionAnswered(false); // isCorrect = false
+      questionAnswered(false);
     }
   };
 
   const handleEndGame = async () => {
-    const winner = ranking[0]?.username;
     try {
-      await awardWinner({ username: winner, pin: props.gamePin });
-      await removeGame({ gameId: props.gameId, pin: props.gamePin });
+      // End game on TCP server (broadcasts GAME_ENDED)
+      await endGame(props.gamePin);
+
+      // Award winner once (host-only)
+      if (props.isHost && !awardedRef.current) {
+        awardedRef.current = true;
+
+        const winner = ranking[0]?.username;
+        if (winner) {
+          await awardWinner(winner, props.gamePin);
+        }
+      }
     } catch (err) {
-      console.error('Failed to remove game:', err);
+      console.error('Failed to end game:', err);
     }
+
     navigate('/home');
   };
 
   return (
     <div className='all-questions-section'>
-      {isQuestionActive && (
-        <Timer countdown='15' onTimeUp={handleTimeUp} />
-      )}
+      {isQuestionActive && <Timer countdown='15' onTimeUp={handleTimeUp} />}
 
       {isQuestionActive ? (
         isAnswered ? (
@@ -170,22 +173,23 @@ export const AllQuestions = (props) => {
         )
       ) : (
         <div className='current-ranking'>
-          <Ranking
-            topFive={ranking.slice(0, 5)} // take top 5
-            gameEnd={isLastQuestion || gameEnd}
-          />
+          <Ranking topFive={ranking.slice(0, 5)} gameEnd={gameEnd || isLastQuestion} />
+
           <div className='user-score'>
             <h3>Your Current Standing</h3>
-            <p className='rank'>Rank: {ranking.findIndex(r => r.username === props.username) + 1 || 'unranked'}</p>
+            <p className='rank'>
+              Rank:{' '}
+              {ranking.findIndex((r) => r.username === props.username) >= 0
+                ? ranking.findIndex((r) => r.username === props.username) + 1
+                : 'unranked'}
+            </p>
             <p className='score'>Score: {scores[props.username] || 0}</p>
           </div>
+
           {props.isHost && (gameEnd || isLastQuestion) ? (
             <Button buttonText='End game' buttonEvent={handleEndGame} />
           ) : (
-            <Button
-              buttonText='Next question'
-              buttonEvent={handleNextClick}
-            />
+            <Button buttonText='Next question' buttonEvent={handleNextClick} />
           )}
         </div>
       )}
