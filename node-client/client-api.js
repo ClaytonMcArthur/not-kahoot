@@ -1,330 +1,500 @@
-// client-api.js
-// Start the TCP game server (server.js)
-require("./server");
+// node-client/client-api.js
+require('./server');
 
-const express = require("express");
-const cors = require("cors");
-const bodyParser = require("body-parser");
-const path = require("path");
-const GameClient = require("./GameClient");
+const express = require('express');
+const cors = require('cors');
+const bodyParser = require('body-parser');
+const path = require('path');
+
+const bcrypt = require('bcrypt');
+const jwt = require('jsonwebtoken');
+
+const GameClient = require('./GameClient');
+const db = require('./db');
 
 const app = express();
 app.use(cors());
 app.use(bodyParser.json());
 
-// TCP server connection for GameClient
-const TCP_HOST = process.env.TCP_HOST || "127.0.0.1";
-const TCP_PORT = process.env.TCP_PORT || 4000;
+// ===================== AUTH CONFIG + DB HELPERS =====================
+const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret-change-this';
 
-// Single GameClient instance for this process
-let client = null;
-let currentUsername = null;
+const insertUserStmt = db.prepare(`
+  INSERT INTO users (username, password_hash)
+  VALUES (?, ?)
+`);
 
-// ===== SSE (Server-Sent Events) setup =====
-const sseClients = new Set(); // each item is a res object
+const findUserByUsernameStmt = db.prepare(`
+  SELECT * FROM users WHERE username = ?
+`);
 
-function broadcastSSE(msg) {
-  const data = JSON.stringify(msg);
-  for (const res of sseClients) {
-    res.write(`data: ${data}\n\n`);
+const findUserByIdStmt = db.prepare(`
+  SELECT id, username, created_at FROM users WHERE id = ?
+`);
+
+function authRequired(req, res, next) {
+  const header = req.headers.authorization || '';
+  const [type, token] = header.split(' ');
+  if (type !== 'Bearer' || !token) {
+    return res.status(401).json({ error: 'Missing or invalid token' });
+  }
+  try {
+    const payload = jwt.verify(token, JWT_SECRET);
+    req.userId = payload.userId;
+    next();
+  } catch (_) {
+    return res.status(401).json({ error: 'Invalid token' });
   }
 }
 
-// GET /api/events - SSE stream for game events
-app.get("/api/events", (req, res) => {
-  console.log("SSE /api/events connection opened");
-  res.setHeader("Content-Type", "text/event-stream");
-  res.setHeader("Cache-Control", "no-cache");
-  res.setHeader("Connection", "keep-alive");
+// Resolve username from (1) body, (2) header, (3) JWT userId -> DB lookup
+function resolveUsername(req) {
+  const bodyUser =
+    typeof req.body?.username === 'string'
+      ? req.body.username
+      : typeof req.body?.username?.username === 'string'
+        ? req.body.username.username
+        : null;
+
+  if (bodyUser && bodyUser.trim()) return bodyUser.trim();
+
+  const headerUser = req.headers['x-username'];
+  if (typeof headerUser === 'string' && headerUser.trim()) return headerUser.trim();
+
+  const auth = req.headers.authorization || '';
+  const [type, token] = auth.split(' ');
+  if (type === 'Bearer' && token) {
+    try {
+      const payload = jwt.verify(token, JWT_SECRET);
+      const user = findUserByIdStmt.get(payload.userId);
+      if (user?.username) return user.username;
+    } catch (_) {}
+  }
+
+  return null;
+}
+
+// ===================== TCP + CLIENT POOL =====================
+const TCP_HOST = process.env.TCP_HOST || '127.0.0.1';
+const TCP_PORT = process.env.TCP_PORT || 4000;
+
+// One GameClient PER USERNAME
+const clientsByUser = new Map(); // username -> GameClient
+
+function getClientForUser(username) {
+  return clientsByUser.get(username) || null;
+}
+
+// ===================== SSE (per-user) =====================
+const sseByUser = new Map(); // username -> Set(res)
+
+function sseSet(username) {
+  if (!sseByUser.has(username)) sseByUser.set(username, new Set());
+  return sseByUser.get(username);
+}
+
+function safeWrite(res, payload) {
+  try {
+    res.write(`data: ${JSON.stringify(payload)}\n\n`);
+  } catch (_) {}
+}
+
+function broadcastToUser(username, msg) {
+  const set = sseByUser.get(username);
+  if (!set) return;
+  for (const res of set) safeWrite(res, msg);
+}
+
+// GET /api/events?username=...
+app.get('/api/events', (req, res) => {
+  const username = typeof req.query.username === 'string' ? req.query.username.trim() : '';
+  if (!username) return res.status(400).end('username query param required');
+
+  console.log('SSE /api/events connection opened for', username);
+
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
   res.flushHeaders();
 
-  sseClients.add(res);
+  sseSet(username).add(res);
 
-  req.on("close", () => {
-    console.log("SSE /api/events connection closed");
-    sseClients.delete(res);
+  req.on('close', () => {
+    console.log('SSE /api/events connection closed for', username);
+    sseSet(username).delete(res);
   });
 });
 
-// ===== HTTP API matching your frontend clientApi.js =====
+// ========================== AUTH ROUTES ============================
 
-// POST /api/connect { username }
-app.post("/api/connect", async (req, res) => {
-  const { username } = req.body;
-  console.log("HTTP /api/connect", req.body);
-
-  if (!username || !username.trim()) {
-    return res.status(400).json({ ok: false, error: "Username is required" });
+app.post('/api/signup', async (req, res) => {
+  const { username, password } = req.body || {};
+  if (!username || !password) {
+    return res.status(400).json({ error: 'username and password required' });
   }
 
   try {
-    // Close previous client if any
-    if (client) {
-      console.log("Closing existing GameClient before reconnect");
-      client.close();
-      client = null;
+    const passwordHash = await bcrypt.hash(password, 10);
+    insertUserStmt.run(username, passwordHash);
+    return res.status(201).json({ ok: true });
+  } catch (err) {
+    if (err.code === 'SQLITE_CONSTRAINT_UNIQUE') {
+      return res.status(409).json({ error: 'username already taken' });
+    }
+    console.error('signup error', err);
+    return res.status(500).json({ error: 'internal error' });
+  }
+});
+
+app.post('/api/login', async (req, res) => {
+  const { username, password } = req.body || {};
+  if (!username || !password) {
+    return res.status(400).json({ error: 'username and password required' });
+  }
+
+  const user = findUserByUsernameStmt.get(username);
+  if (!user) return res.status(401).json({ error: 'invalid username or password' });
+
+  const ok = await bcrypt.compare(password, user.password_hash);
+  if (!ok) return res.status(401).json({ error: 'invalid username or password' });
+
+  const token = jwt.sign({ userId: user.id }, JWT_SECRET, { expiresIn: '7d' });
+
+  return res.json({ token, user: { id: user.id, username: user.username } });
+});
+
+app.get('/api/me', authRequired, (req, res) => {
+  const user = findUserByIdStmt.get(req.userId);
+  if (!user) return res.status(404).json({ error: 'user not found' });
+  return res.json({ user });
+});
+
+app.get('/api/scoreboard', (req, res) => {
+  try {
+    const stmt = db.prepare(`
+      SELECT username, wins
+      FROM users
+      ORDER BY wins DESC, username ASC
+      LIMIT 10
+    `);
+    const leaders = stmt.all();
+    return res.json({ leaders });
+  } catch (err) {
+    console.error('scoreboard error: ', err);
+    return res.status(500).json({ error: 'internal error' });
+  }
+});
+
+// ===================== GAME HELPERS =====================
+function requireClient(req, res) {
+  const username = resolveUsername(req);
+  if (!username) {
+    res.status(400).json({ ok: false, error: 'username required (body, x-username, or auth token)' });
+    return { client: null, username: null };
+  }
+
+  const client = getClientForUser(username);
+  if (!client) {
+    res.status(400).json({ ok: false, error: 'Not connected (call /api/connect first)' });
+    return { client: null, username: null };
+  }
+
+  return { client, username };
+}
+
+function waitFor(client, type, predicate, timeoutMs = 5000) {
+  return new Promise((resolve, reject) => {
+    let timeout;
+
+    const handler = (msg) => {
+      try {
+        if (!predicate || predicate(msg)) {
+          clearTimeout(timeout);
+          client.removeListener(type, handler);
+          resolve(msg);
+        }
+      } catch (e) {
+        // predicate threw
+      }
+    };
+
+    timeout = setTimeout(() => {
+      client.removeListener(type, handler);
+      reject(new Error(`Timed out waiting for ${type}`));
+    }, timeoutMs);
+
+    client.on(type, handler);
+  });
+}
+
+// ===================== GAME ROUTES =====================
+
+// POST /api/connect { username }
+app.post('/api/connect', async (req, res) => {
+  const username = resolveUsername(req) || req.body?.username;
+  console.log('HTTP /api/connect', req.body);
+
+  if (!username || !username.trim()) {
+    return res.status(400).json({ ok: false, error: 'Username is required' });
+  }
+
+  const user = username.trim();
+
+  try {
+    const existing = clientsByUser.get(user);
+    if (existing && existing.connected) {
+      return res.json({ ok: true });
     }
 
-    currentUsername = username;
-    client = new GameClient(TCP_HOST, TCP_PORT, username);
+    if (existing && !existing.connected) {
+      // kill old socket if any
+      try { existing.close(); } catch (_) {}
+      clientsByUser.delete(user);
+    }
 
-    // Avoid attaching multiple listeners if /connect is called again
-    client.removeAllListeners("message");
-    client.removeAllListeners("error");
+    const client = new GameClient(TCP_HOST, TCP_PORT, user);
 
-    // Forward all messages from TCP server to SSE clients
-    client.on("message", (msg) => {
-      console.log("GameClient message from TCP:", msg);
-      broadcastSSE(msg);
+    client.removeAllListeners('message');
+    client.removeAllListeners('error');
+
+    client.on('message', (msg) => {
+      console.log('GameClient message from TCP:', msg);
+      broadcastToUser(user, msg);
     });
 
-    client.on("error", (err) => {
-      console.error("GameClient error:", err);
-      broadcastSSE({ type: "ERROR", message: err.message });
+    client.on('error', (err) => {
+      console.error('GameClient error:', err);
+      broadcastToUser(user, { type: 'ERROR', message: err.message });
+    });
+
+    client.on('disconnect', () => {
+      console.log('GameClient disconnected for', user);
     });
 
     await client.connect();
-    client.register();
 
-    console.log(`Registered username: ${username}`);
+    // IMPORTANT: wait for REGISTER_OK so the server is ready before requests continue
+    const pendingRegister = waitFor(
+      client,
+      'REGISTER_OK',
+      (m) => m?.username === user,
+      5000
+    );
+
+    client.register();
+    await pendingRegister;
+
+    clientsByUser.set(user, client);
+
+    console.log(`Registered username: ${user}`);
     return res.json({ ok: true });
   } catch (err) {
-    console.error("Failed to connect to TCP server in /api/connect:", err);
+    console.error('Failed to connect to TCP server in /api/connect:', err);
     return res.status(500).json({ ok: false, error: err.message });
   }
 });
 
-// POST /api/listGames {}
-// Returns { success: true, games: [...] } based on GAMES_LIST from TCP server
-app.post("/api/listGames", async (req, res) => {
-  console.log("HTTP /api/listGames");
-  if (!client) {
-    console.log("listGames error: no GameClient");
-    return res.status(400).json({ ok: false, error: "Not connected" });
-  }
+// POST /api/listGames
+app.post('/api/listGames', async (req, res) => {
+  console.log('HTTP /api/listGames');
+  const { client } = requireClient(req, res);
+  if (!client) return;
 
   try {
-    const games = await new Promise((resolve, reject) => {
-      let timeout;
+    const pending = waitFor(client, 'GAMES_LIST', () => true, 5000);
+    client.listGames();
+    const msg = await pending;
 
-      const handler = (msg) => {
-        console.log("Received GAMES_LIST from TCP:", msg);
-        clearTimeout(timeout);
-        client.removeListener("GAMES_LIST", handler);
-        resolve(msg.games || []);
-      };
-
-      timeout = setTimeout(() => {
-        client.removeListener("GAMES_LIST", handler);
-        reject(new Error("Timed out waiting for GAMES_LIST"));
-      }, 5000);
-
-      client.once("GAMES_LIST", handler);
-      client.listGames();
-    });
-
-    return res.json({ success: true, games });
+    return res.json({ success: true, games: msg.games || [] });
   } catch (err) {
-    console.error("listGames error:", err);
+    console.error('listGames error:', err);
     return res.status(500).json({ ok: false, error: err.message });
   }
 });
 
-// POST /api/createGame { ...options }
-// TCP server will generate the pin and respond with GAME_CREATED via TCP.
-// We wait for that and then return { success, game } to the frontend.
-app.post("/api/createGame", async (req, res) => {
-  console.log("HTTP /api/createGame", req.body);
-  if (!client) {
-    console.log("createGame error: no GameClient");
-    return res.status(400).json({ ok: false, error: "Not connected" });
-  }
+// POST /api/createGame
+app.post('/api/createGame', async (req, res) => {
+  console.log('HTTP /api/createGame', req.body);
+  const { client, username } = requireClient(req, res);
+  if (!client) return;
 
   const options = req.body || {};
+  options.username = options.username || username;
 
   try {
-    const game = await new Promise((resolve, reject) => {
-      let timeout;
-
-      const handler = (msg) => {
-        console.log("Received GAME_CREATED from TCP:", msg);
-        clearTimeout(timeout);
-        client.removeListener("GAME_CREATED", handler);
-        resolve(msg.game);
-      };
-
-      timeout = setTimeout(() => {
-        client.removeListener("GAME_CREATED", handler);
-        reject(new Error("Timed out waiting for GAME_CREATED"));
-      }, 5000);
-
-      client.once("GAME_CREATED", handler);
-      client.createGame(options);
-    });
-
-    return res.json({ success: true, game });
+    const pending = waitFor(client, 'GAME_CREATED', () => true, 5000);
+    client.createGame(options);
+    const msg = await pending;
+    return res.json({ success: true, game: msg.game });
   } catch (err) {
-    console.error("createGame error:", err);
+    console.error('createGame error:', err);
     return res.status(500).json({ ok: false, error: err.message });
   }
 });
 
-// POST /api/removeGame { pin } (stub)
-app.post("/api/removeGame", (req, res) => {
-  console.log("HTTP /api/removeGame", req.body);
-  // You can later add a message type to server.js if you want to implement this.
-  return res.json({ ok: true });
-});
+// POST /api/startGame { pin }
+app.post('/api/startGame', (req, res) => {
+  const { client, username } = requireClient(req, res);
+  if (!client) return;
 
-// POST /api/startGame { pin or gameId, questions? }
-app.post("/api/startGame", (req, res) => {
-  const { pin, username } = req.body;
-  console.log("startGame called with pin:", pin, "username:", username);
+  const { pin } = req.body || {};
+  if (!pin) return res.status(400).json({ ok: false, error: 'pin is required' });
 
-  if (!client) {
-    return res.status(400).json({ ok: false, error: "Not connected" });
-  }
-
-  if (!pin) {
-    return res.status(400).json({ ok: false, error: "pin is required" });
-  }
-
-  // We no longer send questions from HTTP; they live in game.questions on the server.
   client.startGame(pin, username);
-
   return res.json({ ok: true });
 });
 
 // POST /api/joinGame { gameId }
-app.post("/api/joinGame", (req, res) => {
-  console.log("HTTP /api/joinGame", req.body);
-  if (!client) {
-    console.log("joinGame error: no GameClient");
-    return res.status(400).json({ ok: false, error: "Not connected" });
-  }
+app.post('/api/joinGame', async (req, res) => {
+  console.log('HTTP /api/joinGame', req.body);
+  const { client, username } = requireClient(req, res);
+  if (!client) return;
 
-  const { gameId } = req.body;
-  if (!gameId) {
-    return res.status(400).json({ ok: false, error: "gameId is required" });
-  }
+  const { gameId } = req.body || {};
+  if (!gameId) return res.status(400).json({ ok: false, error: 'gameId is required' });
 
-  client.joinGame(gameId);
-  return res.json({ ok: true });
+  try {
+    const pending = waitFor(
+      client,
+      'JOINED_GAME',
+      (m) => m?.game?.pin === gameId,
+      5000
+    );
+
+    client.joinGame(gameId, username);
+    const msg = await pending;
+
+    return res.json({ ok: true, game: msg.game });
+  } catch (err) {
+    console.error('joinGame error:', err);
+    return res.status(500).json({ ok: false, error: err.message });
+  }
 });
 
 // POST /api/exitGame { gameId }
-app.post("/api/exitGame", (req, res) => {
-  console.log("HTTP /api/exitGame", req.body);
-  if (!client) {
-    console.log("exitGame error: no GameClient");
-    return res.status(400).json({ ok: false, error: "Not connected" });
-  }
+app.post('/api/exitGame', (req, res) => {
+  console.log('HTTP /api/exitGame', req.body);
+  const { client } = requireClient(req, res);
+  if (!client) return;
 
-  const { gameId } = req.body;
-  if (!gameId) {
-    return res.status(400).json({ ok: false, error: "gameId is required" });
-  }
+  const { gameId } = req.body || {};
+  if (!gameId) return res.status(400).json({ ok: false, error: 'gameId is required' });
 
   client.exitGame(gameId);
   return res.json({ ok: true });
 });
 
 // POST /api/sendAnswer { gameId, questionId, answer }
-app.post("/api/sendAnswer", (req, res) => {
-  console.log("HTTP /api/sendAnswer", req.body);
-  if (!client) {
-    console.log("sendAnswer error: no GameClient");
-    return res.status(400).json({ ok: false, error: "Not connected" });
-  }
+app.post('/api/sendAnswer', (req, res) => {
+  const { client, username } = requireClient(req, res);
+  if (!client) return;
 
-  const { gameId, questionId, answer } = req.body;
-  if (!gameId) {
-    return res.status(400).json({ ok: false, error: "gameId is required" });
-  }
+  const { gameId, answer } = req.body || {};
+  if (!gameId) return res.status(400).json({ ok: false, error: 'gameId is required' });
 
-  const correct = !!answer; // you can adjust this mapping later if needed
-  console.log("sendAnswer mapping -> pin:", gameId, "correct:", correct, "questionId:", questionId);
-  client.sendAnswer(gameId, correct);
+  const correct =
+    answer === true || answer === 'true' || answer === 1 || answer === '1';
+
+  console.log('sendAnswer ->', { pin: gameId, correct, username });
+  client.sendAnswer(gameId, correct, username);
+
   return res.json({ ok: true });
 });
 
 // POST /api/nextQuestion { gameId }
-app.post("/api/nextQuestion", (req, res) => {
-  console.log("HTTP /api/nextQuestion", req.body);
-  const { gameId } = req.body;
-  if (!gameId) {
-    return res.status(400).json({ ok: false, error: "gameId is required" });
-  }
+app.post('/api/nextQuestion', (req, res) => {
+  console.log('HTTP /api/nextQuestion', req.body);
+  const { client, username } = requireClient(req, res);
+  if (!client) return;
 
-  console.log("nextQuestion called for game:", gameId);
-  broadcastSSE({ type: "NEXT_QUESTION", pin: gameId });
+  const { gameId } = req.body || {};
+  if (!gameId) return res.status(400).json({ ok: false, error: 'gameId is required' });
+
+  client.nextQuestion(gameId, username);
   return res.json({ ok: true });
 });
 
-// POST /api/chat { pin, message, username }
-app.post("/api/chat", (req, res) => {
-  console.log("HTTP /api/chat", req.body);
-  if (!client) {
-    console.log("chat error: no GameClient");
-    return res.status(400).json({ ok: false, error: "Not connected" });
-  }
+// POST /api/endGame { gameId }
+app.post('/api/endGame', (req, res) => {
+  console.log('HTTP /api/endGame', req.body);
+  const { client, username } = requireClient(req, res);
+  if (!client) return;
 
-  const { pin, message, username } = req.body;
+  const { gameId } = req.body || {};
+  if (!gameId) return res.status(400).json({ ok: false, error: 'gameId is required' });
+
+  client.endGame(gameId, username);
+  return res.json({ ok: true });
+});
+
+// POST /api/awardWinner { pin, username }
+app.post('/api/awardWinner', (req, res) => {
+  const raw = req.body?.username;
+  const name =
+    typeof raw === 'string' ? raw :
+    typeof raw?.username === 'string' ? raw.username :
+    null;
+
+  if (!name) return res.status(400).json({ ok: false, error: 'username required' });
+
+  try {
+    const stmt = db.prepare(`
+      UPDATE users
+      SET wins = wins + 1
+      WHERE username = ?
+    `);
+    stmt.run(name);
+    return res.json({ ok: true });
+  } catch (err) {
+    console.error('Failed to award win: ', err);
+    return res.status(500).json({ ok: false, error: err.message });
+  }
+});
+
+// POST /api/chat { pin, message }
+app.post('/api/chat', (req, res) => {
+  console.log('HTTP /api/chat', req.body);
+  const { client, username } = requireClient(req, res);
+  if (!client) return;
+
+  const { pin, message } = req.body || {};
   if (!pin || !message) {
-    return res
-      .status(400)
-      .json({ ok: false, error: "pin and message are required" });
+    return res.status(400).json({ ok: false, error: 'pin and message are required' });
   }
 
-  console.log("chat:", { pin, message, username });
-  client.sendChat(pin, message, username || "Unknown");
+  client.sendChat(pin, message, username);
   return res.json({ ok: true });
 });
 
-app.post("/api/submitQuestion", (req, res) => {
-  console.log("HTTP /api/submitQuestion", req.body);
-  if (!client) {
-    return res.status(400).json({ ok: false, error: "Not connected" });
-  }
+// POST /api/submitQuestion { pin, question, answerTrue }
+app.post('/api/submitQuestion', (req, res) => {
+  console.log('HTTP /api/submitQuestion', req.body);
+  const { client, username } = requireClient(req, res);
+  if (!client) return;
 
-  const { pin, question, username } = req.body;
-  const answerTrue = !!req.body.answerTrue;
+  const { pin, question } = req.body || {};
+  const answerTrue = !!req.body?.answerTrue;
 
   if (!pin || !question) {
-    return res
-      .status(400)
-      .json({ ok: false, error: "pin and question are required" });
+    return res.status(400).json({ ok: false, error: 'pin and question are required' });
   }
 
-  // Pass username all the way through
   client.submitQuestion(pin, question, answerTrue, username);
-
-  return res.json({ ok: true });
-});
-
-// Optional: disconnect route if you ever want it
-app.post("/api/disconnect", (req, res) => {
-  console.log("HTTP /api/disconnect");
-  if (client) {
-    client.close();
-    client = null;
-    currentUsername = null;
-  }
   return res.json({ ok: true });
 });
 
 // ===== Serve React static build =====
-const buildPath = path.join(__dirname, "build");
+const buildPath = path.join(__dirname, 'build');
 app.use(express.static(buildPath));
 
 // Fallback to index.html for React Router
-app.get("*", (req, res) => {
-  res.sendFile(path.join(buildPath, "index.html"));
+app.get('*', (req, res) => {
+  res.sendFile(path.join(buildPath, 'index.html'));
 });
 
 // ===== Start HTTP server (Render uses PORT env) =====
 const HTTP_PORT = process.env.PORT || 3001;
 app.listen(HTTP_PORT, () => {
   console.log(`HTTP API + static server listening on port ${HTTP_PORT}`);
-  console.log(`TCP server expected at ${TCP_HOST}:${TCP_PORT} (started via require("./server"))`);
+  console.log(`TCP server expected at ${TCP_HOST}:${TCP_PORT} (started via require('./server'))`);
 });

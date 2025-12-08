@@ -1,33 +1,46 @@
+// src/components/Timer/Timer.js
 import './Timer.scss';
-import { useState, useEffect } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 /**
  * Component that tracks and displays the timer for every game question.
- * @component
- * @param {Integer} props.countdown - the countdown duration
- * @param {Function} props.onTimeUp - allows parent component to act once time is up
+ *
+ * @param {Object} props
+ * @param {number|string} props.countdown - countdown duration (seconds)
+ * @param {Function} props.onTimeUp - called once when time reaches 0
  * @returns {JSX.Element}
  */
 export const Timer = (props) => {
-    const [seconds, setSeconds] = useState(props.countdown);
+  const initial = Math.max(0, Number(props.countdown) || 0);
 
-    useEffect(() => {
-        const intervalId = setInterval(() => {
-            setSeconds(prevseconds => {
-                if (prevseconds === 1) {
-                    clearInterval(intervalId);
-                    props.onTimeUp();     // notify parent
-                }
-                return prevseconds - 1;
-            })
-        }, 1000); // Update every second
+  const [seconds, setSeconds] = useState(initial);
+  const firedRef = useRef(false);
 
-        return () => clearInterval(intervalId);
-    }, []);
+  // Reset timer when countdown changes (new question)
+  useEffect(() => {
+    firedRef.current = false;
+    setSeconds(initial);
+  }, [initial]);
 
-    return (
-        <div className='timer-section'>
-            <span className='current-time'>{seconds}</span>
-        </div>
-    );
+  useEffect(() => {
+    if (seconds <= 0) {
+      if (!firedRef.current) {
+        firedRef.current = true;
+        props.onTimeUp?.();
+      }
+      return;
+    }
+
+    const id = setInterval(() => {
+      setSeconds((prev) => Math.max(0, prev - 1));
+    }, 1000);
+
+    return () => clearInterval(id);
+  }, [seconds, props.onTimeUp]);
+
+  return (
+    <div className='timer-section'>
+      <span className='current-time'>{seconds}</span>
+    </div>
+  );
 };

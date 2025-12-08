@@ -14,11 +14,12 @@ export const Question = (props) => {
     const [selected, setSelected] = useState(null);
     const [isCorrect, setIsCorrect] = useState(null);
 
-    const handleAnswerClick = (answerType, actualAnswer) => {
-        setSelected(answerType);
-        setIsCorrect(actualAnswer);
-        props.questionAnswered();
-    }
+const handleAnswerClick = (answerType, actualAnswer) => {
+    setSelected(answerType);
+    setIsCorrect(actualAnswer);
+    // actualAnswer is a boolean: true if this click is correct
+    props.questionAnswered(actualAnswer);
+};
 
     return (
         <div className='question-and-answer'>

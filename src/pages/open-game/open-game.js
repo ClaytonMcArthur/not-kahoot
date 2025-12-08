@@ -1,152 +1,171 @@
-import "./open-game.scss";
-import { DisplayUsers } from "../../components/DisplayUsers/DisplayUsers";
-import { Button } from "../../components/Button/Button";
-import { Chat } from "../../components/Chat/Chat";
-import { AddQuestionModal } from "../../components/AddQuestionModal/AddQuestionModal";
-import { useLocation, useNavigate } from "react-router-dom";
-import { useState, useEffect } from "react";
+// src/pages/open-game/open-game.js
+import './open-game.scss';
+import { DisplayUsers } from '../../components/DisplayUsers/DisplayUsers';
+import { Button } from '../../components/Button/Button';
+import { Chat } from '../../components/Chat/Chat';
+import { AddQuestionModal } from '../../components/AddQuestionModal/AddQuestionModal';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { useState, useEffect, useMemo } from 'react';
 import {
   sendChat,
   startGame,
   subscribeToGameEvents,
-  removeGame,
   exitGame,
   submitQuestion,
-} from "../../api/clientApi";
+  endGame,
+} from '../../api/clientApi';
+import { BackgroundMusic } from '../../components/BackgroundMusic/BackgroundMusic';
 
 export const OpenGame = () => {
   const [questionsByPlayer, setQuestionsByPlayer] = useState({});
   const [isQuestionModalOpen, setIsQuestionModalOpen] = useState(false);
+
   const location = useLocation();
   const navigate = useNavigate();
 
-  const { game, username } = location.state || {};
+  const state = location.state || {};
+  const username = state.username || localStorage.getItem('username') || 'Unknown';
+
+  const [game, setGame] = useState(state.game || null);
   const [messages, setMessages] = useState([]);
   const [players, setPlayers] = useState(
-    (game?.players || []).map((p) =>
-      typeof p === "string" ? { username: p } : p
-    )
+    (state.game?.players || []).map((p) => (typeof p === 'string' ? { username: p } : p))
   );
 
-  // Subscribe to SSE events
+  const isHost = useMemo(() => {
+    return !!game && username === game.host;
+  }, [game, username]);
+
+  const buildQuestionsByPlayer = (g) => {
+    const out = {};
+    (g?.questions || []).forEach((q) => {
+      if (!q?.username) return;
+      out[q.username] = { question: q.question, answerTrue: !!q.answerTrue };
+    });
+    return out;
+  };
+
   useEffect(() => {
     if (!game) return;
 
     const unsubscribe = subscribeToGameEvents((msg) => {
-      // Ignore events for other games
       if (!msg.pin || msg.pin !== game.pin) return;
 
       switch (msg.type) {
-        case "PLAYER_JOINED":
-        case "PLAYER_LEFT":
-        case "SCORE_UPDATE": {
-          // Update players from the latest game state
-          const playersFromGame = (msg.game?.players || []).map((p) =>
-            typeof p === "string" ? { username: p } : p
-          );
-          setPlayers(playersFromGame);
+        case 'JOINED_GAME':
+          if (msg.game) {
+            setGame(msg.game);
+            setPlayers((msg.game.players || []).map((p) => (typeof p === 'string' ? { username: p } : p)));
+            setQuestionsByPlayer(buildQuestionsByPlayer(msg.game));
+          }
+          break;
+
+        case 'PLAYER_JOINED':
+        case 'PLAYER_LEFT':
+        case 'SCORE_UPDATE': {
+          if (msg.game) {
+            setGame(msg.game);
+            const playersFromGame = (msg.game.players || []).map((p) =>
+              typeof p === 'string' ? { username: p } : p
+            );
+            setPlayers(playersFromGame);
+            setQuestionsByPlayer(buildQuestionsByPlayer(msg.game));
+          }
           break;
         }
 
-        case "QUESTION_SUBMITTED": {
-          // Any player's submitted question gets merged into questionsByPlayer
+        case 'QUESTION_SUBMITTED': {
           setQuestionsByPlayer((prev) => ({
             ...prev,
-            [msg.username]: {
-              question: msg.question,
-              answerTrue: msg.answerTrue,
-            },
+            [msg.username]: { question: msg.question, answerTrue: msg.answerTrue },
           }));
           break;
         }
 
-        case "CHAT": {
+        case 'CHAT': {
           setMessages((prev) => [
             ...prev,
-            {
-              id: crypto.randomUUID(),
-              player: msg.from,
-              text: msg.message,
-            },
+            { id: crypto.randomUUID(), player: msg.from, text: msg.message },
           ]);
           break;
         }
 
-        case "GAME_STARTED": {
-          // Navigate all players to active game with the updated game state
-          navigate("/active-game", { state: { game: msg.game, username } });
+        case 'GAME_STARTED': {
+          navigate('/active-game', { state: { game: msg.game, username } });
+          break;
+        }
+
+        case 'GAME_ENDED': {
+          // If host ends it in lobby for some reason
+          navigate('/home');
           break;
         }
 
         default:
           break;
       }
-    });
+    }, { username });
 
     return () => unsubscribe();
-  }, [game?.pin, username, navigate]);
+  }, [game?.pin, navigate, username]);
 
   const handleSendMessage = (messageText) => {
+    if (!game) return;
     sendChat(game.pin, messageText, username);
   };
 
   const handleEndGame = async () => {
+    if (!game) return;
     try {
-      await removeGame({ gameId: game.id, pin: game.pin });
+      await endGame(game.pin);
     } catch (err) {
-      console.error("Failed to remove game:", err);
+      console.error('Failed to end game:', err);
     }
-    navigate("/");
+    navigate('/home');
   };
 
   const handleExitGame = async () => {
+    if (!game) return;
     try {
-      await exitGame(game.pin, username);
+      await exitGame(game.pin);
     } catch (err) {
-      console.error("Failed to exit game:", err);
+      console.error('Failed to exit game:', err);
     }
-    navigate("/");
+    navigate('/home');
   };
 
-  if (!game) {
-    return <main className="open-game">No game data found.</main>;
-  }
+  if (!game) return <main className='open-game'>No game data found.</main>;
 
   return (
-    <main className="open-game">
+    <main className='open-game'>
       <AddQuestionModal
         isOpen={isQuestionModalOpen}
         onClose={() => setIsQuestionModalOpen(false)}
         onSubmitQuestion={async (q) => {
-          // Send to server so everyone (especially host) gets it
           try {
             await submitQuestion(game.pin, q.question, q.answerTrue, username);
           } catch (err) {
-            console.error("Failed to submit question:", err);
+            console.error('Failed to submit question:', err);
           }
 
-          // Also update local state so this client sees its own question immediately
           setQuestionsByPlayer((prev) => ({
             ...prev,
-            [username]: {
-              question: q.question,
-              answerTrue: q.answerTrue,
-            },
+            [username]: { question: q.question, answerTrue: q.answerTrue },
           }));
           setIsQuestionModalOpen(false);
         }}
       />
 
-      <h3 className="number-players">
-        Players: {players.length}/{game.maxPlayers}
+      <h3 className='number-players'>
+        Players: {players.length}/{game.maxPlayers ?? '—'}
       </h3>
       <h1>Waiting for players...</h1>
-      <h2 className="game-theme">Theme: {game.theme}</h2>
-      <h2 className="game-pin">Game PIN: {game.pin}</h2>
+      <h2 className='game-theme'>Theme: {game.theme ?? '—'}</h2>
+      <h2 className='game-pin'>Game PIN: {game.pin}</h2>
 
-      <div className="question-submission">
+      <div className='question-submission'>
         <Button
-          buttonText="Add Question"
+          buttonText='Add Question'
           buttonEvent={() => setIsQuestionModalOpen(true)}
           disabled={!!questionsByPlayer[username]}
         />
@@ -159,34 +178,32 @@ export const OpenGame = () => {
         }))}
       />
 
-      <Chat
-        messages={messages}
-        user={username}
-        onSendMessage={handleSendMessage}
-      />
+      <Chat messages={messages} user={username} onSendMessage={handleSendMessage} />
 
-      {username === game.host ? (
-        <div className="host-controls">
-          <div className="start-game">
+      {isHost ? (
+        <div className='host-controls'>
+          <div className='start-game'>
             <Button
-              buttonText="Start game"
+              buttonText='Start game'
               buttonEvent={async () => {
                 try {
-                  // Server already has all questions from SUBMIT_QUESTION
-                  await startGame(game.pin, username);
+                  await startGame(game.pin);
                 } catch (err) {
-                  console.error("Failed to start game:", err);
+                  console.error('Failed to start game:', err);
+                  alert(err.message);
                 }
               }}
             />
           </div>
-          <div className="end-game">
-            <Button buttonText="End game" buttonEvent={handleEndGame} />
+          <div className='end-game'>
+            <Button buttonText='End game' buttonEvent={handleEndGame} />
           </div>
         </div>
       ) : (
-        <Button buttonText="Exit" buttonEvent={handleExitGame} />
+        <Button buttonText='Exit' buttonEvent={handleExitGame} />
       )}
+
+      <BackgroundMusic />
     </main>
   );
 };

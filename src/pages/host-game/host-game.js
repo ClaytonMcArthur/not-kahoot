@@ -1,9 +1,9 @@
-import "./host-game.scss";
-import { Button } from "../../components/Button/Button";
-import { InputField } from "../../components/InputField/InputField";
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { createGame } from "../../api/clientApi"; // <-- use your API helper
+import './host-game.scss';
+import { Button } from '../../components/Button/Button';
+import { InputField } from '../../components/InputField/InputField';
+import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { createGame } from '../../api/clientApi'; // <-- use your API helper
 
 export const HostGame = () => {
     const [isPublicGame, setIsPublicGame] = useState(true);
@@ -22,12 +22,12 @@ export const HostGame = () => {
 
     // Handle game information and navigation
     const navigate = useNavigate();
-    const [gameTheme, setGameTheme] = useState("");
-    const [gamePin, setGamePin] = useState("");
+    const [gameTheme, setGameTheme] = useState('');
+    const [gamePin, setGamePin] = useState('');
 
     const startGame = async () => {
         try {
-            const username = localStorage.getItem("username") || "Host";
+            const username = localStorage.getItem('username') || 'Host';
 
             // Call our clientApi createGame helper, which hits /api/createGame
             const data = await createGame({
@@ -37,71 +37,71 @@ export const HostGame = () => {
                 maxPlayers
             });
 
-            console.log("createGame response:", data);
+            console.log('createGame response:', data);
 
             if (data && data.success && data.game) {
                 const newGamePin = data.game.pin;
                 setGamePin(newGamePin);
 
                 // Navigate to the open game page with the new game PIN and game object
-                navigate("/open-game", { state: { game: data.game, username } });
+                navigate('/open-game', { state: { game: data.game, username } });
             } else {
-                console.error("createGame returned unexpected data:", data);
+                console.error('createGame returned unexpected data:', data);
             }
         } catch (err) {
-            console.error("Error creating game:", err);
+            console.error('Error creating game:', err);
         }
     };
 
     return (
-        <main className="host-game">
-            <div className="game-inputs">
+        <main className='host-game'>
+            <div className='game-inputs'>
                 <InputField
-                    default="Set a theme"
+                    default='Set a theme'
                     onChange={(value) => setGameTheme(value)}
                     value={gameTheme}
                 />
-                <div className="set-game-visibility">
+                <div className='set-game-visibility'>
                     <Button
-                        buttonText="Pubilc"
+                        buttonText='Pubilc'
                         buttonEvent={setPublic}
                         selected={isPublicGame === true}
                     />
                     <Button
-                        buttonText="Private"
+                        buttonText='Private'
                         buttonEvent={setPrivate}
                         selected={isPublicGame === false}
                     />
                 </div>
                 <h2>Select Maximum Players</h2>
-                <div className="set-player-max">
+                <div className='set-player-max'>
                     <Button
-                        buttonText="10"
+                        buttonText='10'
                         buttonEvent={() => selectMaxPlayers(10)}
                         selected={maxPlayers === 10}
                     />
                     <Button
-                        buttonText="20"
+                        buttonText='20'
                         buttonEvent={() => selectMaxPlayers(20)}
                         selected={maxPlayers === 20}
                     />
                     <Button
-                        buttonText="30"
+                        buttonText='30'
                         buttonEvent={() => selectMaxPlayers(30)}
                         selected={maxPlayers === 30}
                     />
                     <Button
-                        buttonText="40"
+                        buttonText='40'
                         buttonEvent={() => selectMaxPlayers(40)}
                         selected={maxPlayers === 40}
                     />
                     <Button
-                        buttonText="50"
+                        buttonText='50'
                         buttonEvent={() => selectMaxPlayers(50)}
                         selected={maxPlayers === 50}
                     />
                 </div>
-                <Button buttonEvent={startGame} buttonText="Start game" />
+                <Button buttonEvent={startGame} buttonText='Start game' />
             </div>
         </main>
     );

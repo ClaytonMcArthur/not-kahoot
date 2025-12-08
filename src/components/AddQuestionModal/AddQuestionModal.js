@@ -1,69 +1,72 @@
+// src/components/AddQuestionModal/AddQuestionModal.js
 import './AddQuestionModal.scss';
-import { useState } from "react";
-import { connect } from "../../api/clientApi";
+import { useState } from 'react';
 import { InputField } from '../InputField/InputField';
-import { Button } from "../Button/Button";
+import { Button } from '../Button/Button';
 
 /**
- * Account component for user registration and account management.
- * @component
- * @param {Boolean} props.isOpen - Determines if the account panel is open
- * @param {Function} props.onClose - Function to close the account panel
- * @param {Function} props.onSubmitQuestion - Function to handle user submitting their question
- * @returns {JSX.Element}
+ * Modal for submitting a True/False question.
+ *
+ * props:
+ * - isOpen: boolean
+ * - onClose: function
+ * - onSubmitQuestion: function({ question: string, answerTrue: boolean })
  */
 export const AddQuestionModal = (props) => {
-    const [question, setQuestion] = useState('');
-    // Handle question answer
-    const [isTrueAnswer, setIsTrueAnswer] = useState(true);
-    if (!props.isOpen) return null;
+  const [question, setQuestion] = useState('');
+  const [isTrueAnswer, setIsTrueAnswer] = useState(true);
 
-    // Control whether the game is public or private
-    const setTrueAnswer = () => {
-        setIsTrueAnswer(true);
-    };
-    const setFalseAnswer = () => {
-        setIsTrueAnswer(false);
-    };
+  if (!props.isOpen) return null;
 
-    return (
-        <div className='question-modal-overlay'>
-            <div className='question-panel'>
-                <h2>Submit a Game Question</h2>
-                <InputField
-                    value={question}
-                    onChange={(val) => setQuestion(val)}
-                    default='Enter question'
-                />
-                <label>Is the answer True or False?</label>
-                <div className='question-buttons'>
-                    <div className='true-false-buttons'>
-                        <Button
-                            buttonText='True'
-                            buttonEvent={setTrueAnswer}
-                            selected={isTrueAnswer}
-                        />
-                        <Button
-                            buttonText='False'
-                            buttonEvent={setFalseAnswer}
-                            selected={!isTrueAnswer}
-                        />
-                    </div>
-                    <Button
-                        buttonText='Submit Question'
-                        buttonEvent={() => {
-                            if (!question.trim()) return; // avoid empty questions
-                            props.onSubmitQuestion({
-                                question: question.trim(),
-                                answer: isTrueAnswer
-                            });
-                            // Reset modal state
-                            setQuestion('');
-                            setIsTrueAnswer(true);
-                        }}
-                    />
-                </div>
-            </div>
+  const submit = () => {
+    const q = question.trim();
+    if (!q) return;
+
+    props.onSubmitQuestion?.({
+      question: q,
+      answerTrue: isTrueAnswer,
+    });
+
+    // Reset modal state
+    setQuestion('');
+    setIsTrueAnswer(true);
+  };
+
+  return (
+    <div
+      className='question-modal-overlay'
+      onClick={() => props.onClose?.()}
+      role='button'
+      tabIndex={-1}
+    >
+      <div className='question-panel' onClick={(e) => e.stopPropagation()}>
+        <h2>Submit a Game Question</h2>
+
+        <InputField
+          value={question}
+          onChange={(val) => setQuestion(val)}
+          default='Enter question'
+        />
+
+        <label>Is the answer True or False?</label>
+
+        <div className='question-buttons'>
+          <div className='true-false-buttons'>
+            <Button
+              buttonText='True'
+              buttonEvent={() => setIsTrueAnswer(true)}
+              selected={isTrueAnswer}
+            />
+            <Button
+              buttonText='False'
+              buttonEvent={() => setIsTrueAnswer(false)}
+              selected={!isTrueAnswer}
+            />
+          </div>
+
+          <Button buttonText='Submit Question' buttonEvent={submit} />
         </div>
-    );
+      </div>
+    </div>
+  );
 };
