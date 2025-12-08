@@ -272,7 +272,17 @@ app.post('/api/connect', async (req, res) => {
     });
 
     await client.connect();
+
+    // IMPORTANT: wait for REGISTER_OK so the server is ready before requests continue
+    const pendingRegister = waitFor(
+      client,
+      'REGISTER_OK',
+      (m) => m?.username === user,
+      5000
+    );
+
     client.register();
+    await pendingRegister;
 
     clientsByUser.set(user, client);
 
@@ -291,13 +301,14 @@ app.post('/api/listGames', async (req, res) => {
   if (!client) return;
 
   try {
-    const msg = await waitFor(client, 'GAMES_LIST', () => true, 5000);
+    const pending = waitFor(client, 'GAMES_LIST', () => true, 5000);
+    client.listGames();
+    const msg = await pending;
+
     return res.json({ success: true, games: msg.games || [] });
   } catch (err) {
     console.error('listGames error:', err);
     return res.status(500).json({ ok: false, error: err.message });
-  } finally {
-    client.listGames();
   }
 });
 
