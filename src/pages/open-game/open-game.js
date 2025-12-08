@@ -4,7 +4,7 @@ import { Button } from '../../components/Button/Button';
 import { Chat } from '../../components/Chat/Chat';
 import { AddQuestionModal } from '../../components/AddQuestionModal/AddQuestionModal';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import {
   sendChat,
   startGame,
@@ -18,17 +18,22 @@ import { BackgroundMusic } from '../../components/BackgroundMusic/BackgroundMusi
 export const OpenGame = () => {
   const [questionsByPlayer, setQuestionsByPlayer] = useState({});
   const [isQuestionModalOpen, setIsQuestionModalOpen] = useState(false);
+
   const location = useLocation();
   const navigate = useNavigate();
 
   const state = location.state || {};
-  const game = state.game;
   const username = state.username || localStorage.getItem('username') || 'Unknown';
 
+  const [game, setGame] = useState(state.game || null);
   const [messages, setMessages] = useState([]);
   const [players, setPlayers] = useState(
-    (game?.players || []).map((p) => (typeof p === 'string' ? { username: p } : p))
+    (state.game?.players || []).map((p) => (typeof p === 'string' ? { username: p } : p))
   );
+
+  const isHost = useMemo(() => {
+    return !!game && username === game.host;
+  }, [game, username]);
 
   useEffect(() => {
     if (!game) return;
@@ -37,13 +42,23 @@ export const OpenGame = () => {
       if (!msg.pin || msg.pin !== game.pin) return;
 
       switch (msg.type) {
+        case 'JOINED_GAME':
+          if (msg.game) {
+            setGame(msg.game);
+            setPlayers((msg.game.players || []).map((p) => (typeof p === 'string' ? { username: p } : p)));
+          }
+          break;
+
         case 'PLAYER_JOINED':
         case 'PLAYER_LEFT':
         case 'SCORE_UPDATE': {
-          const playersFromGame = (msg.game?.players || []).map((p) =>
-            typeof p === 'string' ? { username: p } : p
-          );
-          setPlayers(playersFromGame);
+          if (msg.game) {
+            setGame(msg.game);
+            const playersFromGame = (msg.game.players || []).map((p) =>
+              typeof p === 'string' ? { username: p } : p
+            );
+            setPlayers(playersFromGame);
+          }
           break;
         }
 
@@ -68,19 +83,27 @@ export const OpenGame = () => {
           break;
         }
 
+        case 'GAME_ENDED': {
+          // If host ends it in lobby for some reason
+          navigate('/home');
+          break;
+        }
+
         default:
           break;
       }
     });
 
     return () => unsubscribe();
-  }, [game?.pin, username, navigate]);
+  }, [game?.pin, navigate, username]);
 
   const handleSendMessage = (messageText) => {
+    if (!game) return;
     sendChat(game.pin, messageText, username);
   };
 
   const handleEndGame = async () => {
+    if (!game) return;
     try {
       await endGame(game.pin);
     } catch (err) {
@@ -90,6 +113,7 @@ export const OpenGame = () => {
   };
 
   const handleExitGame = async () => {
+    if (!game) return;
     try {
       await exitGame(game.pin);
     } catch (err) {
@@ -144,7 +168,7 @@ export const OpenGame = () => {
 
       <Chat messages={messages} user={username} onSendMessage={handleSendMessage} />
 
-      {username === game.host ? (
+      {isHost ? (
         <div className='host-controls'>
           <div className='start-game'>
             <Button
@@ -154,6 +178,7 @@ export const OpenGame = () => {
                   await startGame(game.pin);
                 } catch (err) {
                   console.error('Failed to start game:', err);
+                  alert(err.message);
                 }
               }}
             />
