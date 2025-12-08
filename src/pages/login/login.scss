@@ -5,6 +5,7 @@
     flex-direction: column;
     justify-content: center;
     align-items: center;
+    padding-bottom: 3rem;
 
     .login-panel {
         background-color: white;
@@ -18,6 +19,7 @@
         align-items: center;
         flex-direction: column;
         gap: 2rem;
+        text-align: center;
 
         .account-question {
             font-size: 2.5rem;
@@ -61,6 +63,15 @@
                 input {
                     border: 2px solid $KahootPurple;
                 }
+            }
+        }
+
+        @media (max-width: 600px) {
+            width: 100%;
+
+            .account-sections {
+                flex-direction: column;
+                gap: 5rem;
             }
         }
     }
