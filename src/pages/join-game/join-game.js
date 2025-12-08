@@ -59,7 +59,7 @@ export const JoinGame = () => {
                         username={username}
                     />
                 ) : (
-                    <p className='no-games-message'>No active games available. Try hosting one!</p>
+                    <p className='no-games-message'>No public games available. Try hosting one!</p>
                 )}
             </div>
         </main>

@@ -25,6 +25,16 @@
         .button {
             width: 85%;
         }
+
+        input {
+            display: block;
+            margin: 0 auto;
+            width: 85%;
+        }
+
+        @media (max-width: 600px) {
+            width: 100%;
+        }
     }
 
     .active-game-list {
