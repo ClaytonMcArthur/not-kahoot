@@ -85,6 +85,9 @@ function cleanupEndedGames() {
 }
 
 function endGame(pin, game) {
+  // idempotent
+  if (game.state === 'ended') return;
+
   game.state = 'ended';
   game.endedAt = now();
   broadcastToGame(pin, { type: 'GAME_ENDED', pin, game: serializeGame(game) });
@@ -147,7 +150,7 @@ function handleMessage(client, msg) {
 
       // Only show joinable games (lobby, public)
       const list = Array.from(games.values())
-        .filter((g) => g.state === 'lobby')
+        .filter((g) => g.state === 'lobby' && g.isPublic)
         .map(serializeGame);
 
       send(client.socket, { type: 'GAMES_LIST', games: list });
@@ -235,7 +238,12 @@ function handleMessage(client, msg) {
       if (!game) return;
 
       game.players.delete(user);
-      game.scores.delete(user);
+
+      // Keep scores once the game has started so end screens don't "lose" players.
+      if (game.state === 'lobby') {
+        game.scores.delete(user);
+      }
+
       client.currentPin = null;
 
       // If host left, reassign host if possible
@@ -287,6 +295,12 @@ function handleMessage(client, msg) {
 
       const game = requireGame(pin, client.socket);
       if (!game) return;
+
+      // Prevent repeated start spam / weird client states
+      if (game.state !== 'lobby') {
+        send(client.socket, { type: 'ERROR', message: 'Game already started (or ended)' });
+        return;
+      }
 
       const actor = msg.username || client.username || 'Unknown';
       if (!isHost(game, actor)) {
