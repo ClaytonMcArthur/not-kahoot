@@ -81,10 +81,10 @@ export const ActiveGame = () => {
         default:
           break;
       }
-    });
+    }, { username });
 
     return () => unsubscribe();
-  }, [game?.pin, isHost]);
+  }, [game?.pin, isHost, username]);
 
   const handleSendMessage = (messageText) => {
     if (!game) return;
