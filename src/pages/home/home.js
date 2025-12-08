@@ -12,15 +12,13 @@ export const Home = () => {
 
   useEffect(() => {
     scoreboard()
-      .then((res) => {
-        setLeaders(res.leaders || []);
-      })
-      .catch((err) => {
-        console.error('failed to load scoreboard', err);
-      });
+      .then((res) => setLeaders(res.leaders || []))
+      .catch((err) => console.error('failed to load scoreboard', err));
   }, []);
 
   const handleLogout = () => {
+    localStorage.removeItem('authToken');
+    localStorage.removeItem('username');
     navigate('/');
   };
 
@@ -34,7 +32,7 @@ export const Home = () => {
       </div>
 
       <div className='registration'>
-        <Button buttonText='Logout' buttonEvent={() => handleLogout()} />
+        <Button buttonText='Logout' buttonEvent={handleLogout} />
       </div>
 
       <div className='home-buttons'>
