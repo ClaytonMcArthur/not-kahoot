@@ -1,3 +1,4 @@
+// src/pages/open-game/open-game.js
 import './open-game.scss';
 import { DisplayUsers } from '../../components/DisplayUsers/DisplayUsers';
 import { Button } from '../../components/Button/Button';
@@ -35,6 +36,15 @@ export const OpenGame = () => {
     return !!game && username === game.host;
   }, [game, username]);
 
+  const buildQuestionsByPlayer = (g) => {
+    const out = {};
+    (g?.questions || []).forEach((q) => {
+      if (!q?.username) return;
+      out[q.username] = { question: q.question, answerTrue: !!q.answerTrue };
+    });
+    return out;
+  };
+
   useEffect(() => {
     if (!game) return;
 
@@ -46,6 +56,7 @@ export const OpenGame = () => {
           if (msg.game) {
             setGame(msg.game);
             setPlayers((msg.game.players || []).map((p) => (typeof p === 'string' ? { username: p } : p)));
+            setQuestionsByPlayer(buildQuestionsByPlayer(msg.game));
           }
           break;
 
@@ -58,6 +69,7 @@ export const OpenGame = () => {
               typeof p === 'string' ? { username: p } : p
             );
             setPlayers(playersFromGame);
+            setQuestionsByPlayer(buildQuestionsByPlayer(msg.game));
           }
           break;
         }
@@ -92,7 +104,7 @@ export const OpenGame = () => {
         default:
           break;
       }
-    });
+    }, { username });
 
     return () => unsubscribe();
   }, [game?.pin, navigate, username]);
