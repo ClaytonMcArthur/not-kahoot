@@ -11,6 +11,7 @@ class GameClient extends EventEmitter {
     this.socket = null;
     this.buffer = '';
     this.connected = false;
+    this._listenersSetup = false;
   }
 
   connect() {
@@ -38,6 +39,10 @@ class GameClient extends EventEmitter {
 
   _setupListeners() {
     if (!this.socket) return;
+
+    // Prevent accidentally attaching multiple data listeners
+    if (this._listenersSetup) return;
+    this._listenersSetup = true;
 
     this.socket.on('data', (data) => {
       this.buffer += data.toString();
